@@ -3,6 +3,29 @@ hr {
   margin-bottom: 20px;
 }
 
+/* Increase content width by reducing margins */
+.wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.post-content {
+  max-width: 100%;
+}
+
+.site-header {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.site-footer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
 /* Post navigation links */
 .post_navi {
   display: flex;
