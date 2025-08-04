@@ -45,20 +45,47 @@ hr {
 }
 
 /* Code block styling */
-pre, code {
-  font-size: 0.85em;
+.post-content pre,
+.post-content code,
+.highlight pre,
+.highlight code {
+  font-size: 0.85em !important;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
 }
 
-pre {
+.post-content pre,
+.highlight {
   background-color: #f8f9fa !important;
-  border: 1px solid #e9ecef;
-  border-radius: 4px;
-  padding: 12px;
+  border: 1px solid #e9ecef !important;
+  border-radius: 4px !important;
+  padding: 12px !important;
+  margin-bottom: 1em !important;
 }
 
-code {
+.post-content pre code,
+.highlight code {
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  font-size: inherit !important;
+  color: #24292e !important;  /* GitHub-style code color */
+}
+
+/* Override Rouge/Pygments highlighting background */
+.highlight,
+.highlight pre,
+.highlight table {
+  background: #f8f9fa !important;
+  border: none !important;
+  margin-bottom: 0 !important;
+}
+
+/* Ensure inline code has consistent styling */
+.post-content code.highlighter-rouge {
   background-color: #f8f9fa !important;
-  color: #e83e8c;
-  padding: 2px 4px;
-  border-radius: 3px;
+  color: #e83e8c !important;
+  padding: 2px 4px !important;
+  border-radius: 3px !important;
+  font-size: 0.85em !important;
 }
