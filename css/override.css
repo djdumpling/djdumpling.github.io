@@ -46,12 +46,12 @@ hr {
 
 /* Increase content width */
 .wrapper {
-  max-width: calc(1100px - (30px * 2)) !important;
+  max-width: calc(1000px - (30px * 2)) !important;
 }
 
 @media screen and (max-width: 1000px) {
   .wrapper {
-    max-width: calc(1100px - (30px)) !important;
+    max-width: calc(1000px - (30px)) !important;
     padding-right: 15px !important;
     padding-left: 15px !important;
   }
@@ -62,13 +62,13 @@ hr {
 .post-content code,
 .highlight pre,
 .highlight code {
-  font-size: 0.60em !important;
+  font-size: 0.80em !important;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
 }
 
 .post-content pre,
 .highlight {
-  background-color: #fff1dc !important;
+  background-color: #fffaf3 !important;
   border: 1px solid #e8e4dc !important;
   border-radius: 8px !important;
   padding: 12px !important;
@@ -89,14 +89,14 @@ hr {
 .highlight,
 .highlight pre,
 .highlight table {
-  background: #fff1dc !important;
+  background: #fffaf3 !important;
   border: none !important;
   margin-bottom: 0 !important;
 }
 
 /* Ensure inline code has consistent styling */
 .post-content code.highlighter-rouge {
-  background-color: #fff1dc !important;
+  background-color: #fffaf3 !important;
   color: #e83e8c !important;
   padding: 2px 4px !important;
   border-radius: 4px !important;
