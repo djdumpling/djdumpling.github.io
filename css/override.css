@@ -58,6 +58,33 @@ hr {
 }
 
 /* Code block styling */
+/* Python syntax highlighting */
+.hljs-keyword {
+  color: #0033B3 !important;  /* blue for keywords */
+}
+.hljs-string {
+  color: #067D17 !important;  /* green for strings */
+}
+.hljs-number {
+  color: #1750EB !important;  /* blue for numbers */
+}
+.hljs-comment {
+  color: #8C8C8C !important;  /* gray for comments */
+  font-style: italic;
+}
+.hljs-title {
+  color: #5B2DA8 !important;  /* purple for function/class names */
+}
+.hljs-params {
+  color: #000000 !important;  /* black for parameters */
+}
+.hljs-built_in {
+  color: #0033B3 !important;  /* blue for built-in functions */
+}
+.hljs-decorator {
+  color: #756BB1 !important;  /* light purple for decorators */
+}
+
 .post-content pre,
 .post-content code,
 .highlight pre,
