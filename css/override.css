@@ -44,20 +44,33 @@ hr {
   opacity: 0.3;
 }
 
+/* Increase content width */
+.wrapper {
+  max-width: calc(900px - (30px * 2)) !important;
+}
+
+@media screen and (max-width: 800px) {
+  .wrapper {
+    max-width: calc(900px - (30px)) !important;
+    padding-right: 15px !important;
+    padding-left: 15px !important;
+  }
+}
+
 /* Code block styling */
 .post-content pre,
 .post-content code,
 .highlight pre,
 .highlight code {
-  font-size: 0.85em !important;
+  font-size: 0.75em !important;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
 }
 
 .post-content pre,
 .highlight {
-  background-color: #f8f9fa !important;
-  border: 1px solid #e9ecef !important;
-  border-radius: 4px !important;
+  background-color: #faf8f5 !important;
+  border: 1px solid #e8e4dc !important;
+  border-radius: 8px !important;
   padding: 12px !important;
   margin-bottom: 1em !important;
 }
@@ -76,16 +89,16 @@ hr {
 .highlight,
 .highlight pre,
 .highlight table {
-  background: #f8f9fa !important;
+  background: #faf8f5 !important;
   border: none !important;
   margin-bottom: 0 !important;
 }
 
 /* Ensure inline code has consistent styling */
 .post-content code.highlighter-rouge {
-  background-color: #f8f9fa !important;
+  background-color: #faf8f5 !important;
   color: #e83e8c !important;
   padding: 2px 4px !important;
-  border-radius: 3px !important;
+  border-radius: 4px !important;
   font-size: 0.85em !important;
 }
