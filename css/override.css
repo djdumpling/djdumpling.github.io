@@ -46,12 +46,12 @@ hr {
 
 /* Increase content width */
 .wrapper {
-  max-width: calc(900px - (30px * 2)) !important;
+  max-width: calc(1100px - (30px * 2)) !important;
 }
 
-@media screen and (max-width: 800px) {
+@media screen and (max-width: 1000px) {
   .wrapper {
-    max-width: calc(900px - (30px)) !important;
+    max-width: calc(1100px - (30px)) !important;
     padding-right: 15px !important;
     padding-left: 15px !important;
   }
@@ -68,7 +68,7 @@ hr {
 
 .post-content pre,
 .highlight {
-  background-color: #faf8f5 !important;
+  background-color: #fff1dc !important;
   border: 1px solid #e8e4dc !important;
   border-radius: 8px !important;
   padding: 12px !important;
@@ -89,14 +89,14 @@ hr {
 .highlight,
 .highlight pre,
 .highlight table {
-  background: #faf8f5 !important;
+  background: #fff1dc !important;
   border: none !important;
   margin-bottom: 0 !important;
 }
 
 /* Ensure inline code has consistent styling */
 .post-content code.highlighter-rouge {
-  background-color: #faf8f5 !important;
+  background-color: #fff1dc !important;
   color: #e83e8c !important;
   padding: 2px 4px !important;
   border-radius: 4px !important;
