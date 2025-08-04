@@ -62,7 +62,7 @@ hr {
 .post-content code,
 .highlight pre,
 .highlight code {
-  font-size: 0.75em !important;
+  font-size: 0.60em !important;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
 }
 
