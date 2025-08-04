@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathJax Test</title>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <h1>MathJax Test Page</h1>
+    
+    <h2>Inline Math Test</h2>
+    <p>This is an inline formula: $H(p) = \sum_x p(x) \ln\left(\frac1{p(x)}\right)$</p>
+    
+    <h2>Display Math Test</h2>
+    <p>This is a display formula:</p>
+    $$H(p) = \sum_x p(x) \ln\left(\frac1{p(x)}\right)$$
+    
+    <h2>Complex Formula Test</h2>
+    <p>Testing the clipped surrogate objective:</p>
+    $$L^{\text{clip}}(\theta)=\frac1{|B|} \sum_t\left[\min\left(r_t(\theta) \hat{A}_t, \text{clip}(r_t, 1 - \epsilon, 1 + \epsilon) \hat{A}_t\right)\right]$$
+    
+    <h2>Entropy Maximal Test</h2>
+    <p>Maximal entropy formula:</p>
+    $$H(p)=n \cdot \frac1{n}\ln(n)=\ln(n)$$
+    
+    <script>
+        // Check if MathJax loaded successfully
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    console.log('MathJax loaded successfully');
+                } else {
+                    console.log('MathJax failed to load');
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html> 
