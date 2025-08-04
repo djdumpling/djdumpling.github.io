@@ -43,3 +43,22 @@ hr {
   font-size: 2.5em;
   opacity: 0.3;
 }
+
+/* Code block styling */
+pre, code {
+  font-size: 0.85em;
+}
+
+pre {
+  background-color: #f8f9fa !important;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+code {
+  background-color: #f8f9fa !important;
+  color: #e83e8c;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
