@@ -8,6 +8,9 @@ email: "alex.wa@yale.edu"
 twitter_username: "_djdumpling"
 github_username: "djdumpling"
 linkedin_username: "alex-wa"
+
+# Google Analytics
+google_analytics: G-6306928162
 #facebook_username: username
 #flickr_username: username
 #instagram_username: username
@@ -19,8 +22,6 @@ linkedin_username: "alex-wa"
 ######### Nothing below needs to be changed (unless you know what you're doing) #########
 #########################################################################################
 theme: "minima"
-
-rss: rss
 
 kramdown:
   syntax_highlighter_opts:
