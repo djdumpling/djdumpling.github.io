@@ -31,6 +31,12 @@ plugins:
   - jekyll-feed
   - jekyll-sitemap
 
+# Sitemap configuration
+sitemap:
+  exclude: ['/archive.html']
+  include: ['/test-math.html']
+  lastmod: true
+
 titles_from_headings:
   strip_title: true
   collections: true
