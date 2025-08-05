@@ -21,30 +21,20 @@
   {%- endif %}
 
   <!-- Begin highlight.js support -->
-  <link rel="stylesheet" href="/js/highlightjs/styles/github.css">
-  <link rel="stylesheet" href="/js/highlightjs/styles/ssms.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
 
-  <script type="text/javascript" src="/js/highlightjs/highlight.min.js"></script>
-
-  <script type="text/javascript" src="/js/highlightjs/languages/plaintext.min.js"></script>
-  <script type="text/javascript" src="/js/highlightjs/languages/powershell.min.js"></script>
-  <script type="text/javascript" src="/js/highlightjs/languages/tsql.min.js"></script>
-  <script type="text/javascript" src="/js/highlightjs/languages/python.min.js"></script>
-
-  <script type="text/javascript"> 
-    hljs.configure({
-      languages: ['python', 'plaintext', 'powershell', 'tsql']
-    });
-    
-    // Handle both 'python' and 'Python' language tags
-    document.addEventListener('DOMContentLoaded', function() {
-      hljs.highlightAll();
-      
-      // Re-highlight any blocks that might have been missed
-      document.querySelectorAll('pre code').forEach(function(block) {
-        if (block.className.includes('language-python') || block.className.includes('language-Python')) {
-          hljs.highlightElement(block);
+  <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', (event) => {
+      // Initialize highlight.js
+      document.querySelectorAll('pre code').forEach((block) => {
+        // Add the language class if it's missing
+        if (!block.classList.length) {
+          block.classList.add('language-python');
         }
+        // Highlight the block
+        hljs.highlightElement(block);
       });
     });
   </script>

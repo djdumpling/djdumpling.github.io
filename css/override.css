@@ -59,30 +59,68 @@ hr {
 
 /* Code block styling */
 /* Python syntax highlighting */
-.hljs-keyword {
+pre code.hljs {
+  padding: 0;
+  background: transparent;
+}
+
+.hljs-keyword,
+.hljs-built_in,
+.hljs-selector-tag,
+.hljs-tag {
   color: #0033B3 !important;  /* blue for keywords */
 }
-.hljs-string {
+
+.hljs-string,
+.hljs-title,
+.hljs-section,
+.hljs-attribute,
+.hljs-literal,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type {
   color: #067D17 !important;  /* green for strings */
 }
-.hljs-number {
+
+.hljs-number,
+.hljs-deletion {
   color: #1750EB !important;  /* blue for numbers */
 }
-.hljs-comment {
-  color: #8C8C8C !important;  /* gray for comments */
+
+.hljs-variable,
+.hljs-template-variable,
+.hljs-addition {
+  color: #24292e !important;
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: #6a737d !important;  /* gray for comments */
   font-style: italic;
 }
-.hljs-title {
-  color: #5B2DA8 !important;  /* purple for function/class names */
+
+.hljs-emphasis {
+  font-style: italic;
 }
-.hljs-params {
-  color: #000000 !important;  /* black for parameters */
+
+.hljs-strong {
+  font-weight: bold;
 }
-.hljs-built_in {
-  color: #0033B3 !important;  /* blue for built-in functions */
+
+.hljs-function .hljs-title,
+.hljs-attr {
+  color: #5B2DA8 !important;  /* purple for function names */
 }
-.hljs-decorator {
-  color: #756BB1 !important;  /* light purple for decorators */
+
+.hljs-symbol,
+.hljs-bullet {
+  color: #0033B3 !important;  /* blue for symbols */
+}
+
+.hljs-selector-id,
+.hljs-selector-class {
+  color: #756BB1 !important;  /* light purple for selectors */
 }
 
 .post-content pre,
