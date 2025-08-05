@@ -58,69 +58,98 @@ hr {
 }
 
 /* Code block styling */
-/* Python syntax highlighting */
+/* Python syntax highlighting - Enhanced color scheme */
 pre code.hljs {
   padding: 0;
   background: transparent;
 }
 
-.hljs-keyword,
-.hljs-built_in,
-.hljs-selector-tag,
-.hljs-tag {
-  color: #0033B3 !important;  /* blue for keywords */
+/* Keywords (class, def, self, return, etc) */
+.hljs-keyword {
+  color: #0033B3 !important;  /* bright blue */
 }
 
-.hljs-string,
-.hljs-title,
-.hljs-section,
-.hljs-attribute,
-.hljs-literal,
-.hljs-template-tag,
-.hljs-template-variable,
-.hljs-type {
-  color: #067D17 !important;  /* green for strings */
+/* Built-in functions (len, print, etc) */
+.hljs-built_in {
+  color: #00627A !important;  /* darker blue */
 }
 
-.hljs-number,
-.hljs-deletion {
-  color: #1750EB !important;  /* blue for numbers */
+/* Function definitions */
+.hljs-title.function_ {
+  color: #7A3E9D !important;  /* purple */
 }
 
+/* Class names */
+.hljs-title.class_ {
+  color: #00A550 !important;  /* green */
+}
+
+/* Method calls */
+.hljs-title.function_.invoke {
+  color: #9E3600 !important;  /* rust/orange */
+}
+
+/* Variables and properties */
 .hljs-variable,
-.hljs-template-variable,
-.hljs-addition {
-  color: #24292e !important;
+.hljs-property {
+  color: #871094 !important;  /* magenta */
 }
 
-.hljs-comment,
-.hljs-quote,
+/* Self reference */
+.language-python .hljs-variable:first-child {
+  color: #0033B3 !important;  /* bright blue like keywords */
+}
+
+/* Strings */
+.hljs-string {
+  color: #067D17 !important;  /* green */
+}
+
+/* Numbers */
+.hljs-number {
+  color: #1750EB !important;  /* blue */
+}
+
+/* Comments */
+.hljs-comment {
+  color: #8C8C8C !important;  /* gray */
+  font-style: italic;
+}
+
+/* Function parameters */
+.hljs-params {
+  color: #5C4C79 !important;  /* muted purple */
+}
+
+/* Punctuation and operators */
+.hljs-punctuation,
+.hljs-operator {
+  color: #666666 !important;  /* dark gray */
+}
+
+/* Boolean values */
+.hljs-literal {
+  color: #0033B3 !important;  /* bright blue like keywords */
+}
+
+/* Decorators */
 .hljs-meta {
-  color: #6a737d !important;  /* gray for comments */
-  font-style: italic;
+  color: #3B7C87 !important;  /* teal */
 }
 
-.hljs-emphasis {
-  font-style: italic;
-}
-
-.hljs-strong {
-  font-weight: bold;
-}
-
-.hljs-function .hljs-title,
+/* Dictionary keys or named arguments */
 .hljs-attr {
-  color: #5B2DA8 !important;  /* purple for function names */
+  color: #756BB1 !important;  /* light purple */
 }
 
-.hljs-symbol,
-.hljs-bullet {
-  color: #0033B3 !important;  /* blue for symbols */
+/* Special string formatting */
+.hljs-subst {
+  color: #2E7D32 !important;  /* dark green */
 }
 
-.hljs-selector-id,
-.hljs-selector-class {
-  color: #756BB1 !important;  /* light purple for selectors */
+/* String interpolation */
+.hljs-template-variable {
+  color: #A44185 !important;  /* pink */
 }
 
 .post-content pre,
