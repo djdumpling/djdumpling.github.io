@@ -89,7 +89,7 @@ hr {
 .post-content code,
 .highlight pre,
 .highlight code {
-  font-size: 0.85em !important;
+  font-size: 0.80em !important;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
 }
 
@@ -127,5 +127,5 @@ hr {
   color: #e83e8c !important;
   padding: 2px 4px !important;
   border-radius: 4px !important;
-  font-size: 0.85em !important;
+  font-size: 0.80em !important;
 }

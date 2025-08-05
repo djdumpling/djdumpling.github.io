@@ -35,7 +35,18 @@
     hljs.configure({
       languages: ['python', 'plaintext', 'powershell', 'tsql']
     });
-    hljs.highlightAll(); 
+    
+    // Handle both 'python' and 'Python' language tags
+    document.addEventListener('DOMContentLoaded', function() {
+      hljs.highlightAll();
+      
+      // Re-highlight any blocks that might have been missed
+      document.querySelectorAll('pre code').forEach(function(block) {
+        if (block.className.includes('language-python') || block.className.includes('language-Python')) {
+          hljs.highlightElement(block);
+        }
+      });
+    });
   </script>
   <!-- end highlight.js support -->
 
