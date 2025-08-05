@@ -112,6 +112,51 @@ hr {
   margin: 0;
 }
 
+/* New post list styling for homepage */
+.post-list {
+  margin-top: 30px;
+}
+
+.post-item {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.post-item:last-child {
+  border-bottom: none;
+}
+
+.post-item .post-date {
+  color: #6a737d;
+  font-size: 0.7em; /* Tiny font */
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.post-item .post-title {
+  margin: 0 0 10px 0;
+  font-size: 1.8em; /* Large font */
+  line-height: 1.3;
+}
+
+.post-item .post-title a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.post-item .post-title a:hover {
+  text-decoration: underline;
+}
+
+.post-item .post-summary {
+  color: #24292e;
+  font-size: 1em; /* Medium font */
+  line-height: 1.6;
+  margin: 0;
+}
+
 /* Increase content width */
 .wrapper {
   max-width: calc(1000px - (30px * 2)) !important;

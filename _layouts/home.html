@@ -4,4 +4,23 @@ layout: default
 
 <div class="home">
   {{ content }}
+
+  {%- if site.posts.size > 0 -%}
+    <h2 class="post-list-heading">Posts</h2>
+    <div class="post-list">
+      {%- for post in site.posts -%}
+      <div class="post-item">
+        <div class="post-date">{{ post.date | date: "%B %d, %Y" }}</div>
+        <h3 class="post-title">
+          <a class="post-link" href="{{ post.url | relative_url }}">
+            {{ post.title | escape }}
+          </a>
+        </h3>
+        {%- if post.excerpt -%}
+          <div class="post-summary">{{ post.excerpt }}</div>
+        {%- endif -%}
+      </div>
+      {%- endfor -%}
+    </div>
+  {%- endif -%}
 </div> 
