@@ -53,8 +53,8 @@ hr {
 }
 
 .profile-image {
-  width: 120px;
-  height: 120px;
+  width: 150px;
+  height: 150px;
   border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
