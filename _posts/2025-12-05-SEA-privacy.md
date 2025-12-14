@@ -70,8 +70,7 @@ We then count how many examples activate each neuron and retain neurons that app
 
 ### activation patching
 
-For each leak example $(X, Y)$, we construct a harmless variant $X'$ by replacing the secret $Y$ with a placeholder token (e.g., "placeholder"). We perform forward passes on both $X$ and $X'$, capturing the MLP activations $\mathbf{h}_{\ell}$
-and $\mathbf{h}'_{\ell}$ at every layer. We compute the steering vector as the mean difference:
+For each leak example $(X, Y)$, we construct a harmless variant $X'$ by replacing the secret $Y$ with a placeholder token (e.g., "placeholder"). We perform forward passes on both $X$ and $X'$, capturing the MLP activations at every layer. We compute the steering vector as the mean difference:
 
 $$\mathbf{v}_{\ell} = \frac{1}{|\mathcal{T}|} \sum_{i \in \mathcal{T}} (\mathbf{h}_{\ell,i}' - \mathbf{h}_{\ell,i})$$
 
@@ -81,7 +80,11 @@ $$\mathbf{h}_{\ell} \leftarrow \mathbf{h}_{\ell} + \alpha \cdot \mathbf{v}_{\ell
 
 where $\alpha=10$ is a scaling hyperparameter and $\mathbf{m}_{\ell}$ is a binary mask that is 1 for privacy neurons in $\mathcal{N}$ and 0 otherwise. This additive intervention steers the model's behavior away from privacy-leaking activations toward harmless placeholder activations. This approach forms our APNEAP baseline.
 
-As a simpler alternative, we also evaluate steering with random Gaussian noise by replacing the computed steering vector $\mathbf{v}_{\ell}$ with freshly sampled noise $\epsilon_{\ell} \sim \mathcal{N}(0, \sigma^2 \mathbf{I})$ on each forward pass. This undirected perturbation requires no paired examples or steering vector computation—only the privacy neuron coordinates—and serves as a baseline inspired by differential privacy principles.
+As a simpler alternative, we also evaluate steering with random Gaussian noise by replacing 
+
+$$\mathbf{v}_{\ell} \leftarrow \epsilon_{\ell} \sim \mathcal{N}(0, \sigma^2 \mathbf{I})$$
+
+the computed steering vector with freshly sampled noise on each forward pass. This undirected perturbation requires no paired examples or steering vector computation—only the privacy neuron coordinates—and serves as a baseline inspired by differential privacy principles.
 
 ### spectral editing of activations
 
@@ -91,7 +94,7 @@ We adapt SEA to privacy by constructing three variants for each leak $(X, Y)$:
 - **Positive (harmless)**: Replace $Y$ with a placeholder
 - **Negative (leak)**: Keep the original prompt $X$ that leaks $Y$
 
-We perform forward passes on all three variants, capturing the last-token MLP activation $\mathbf{h}_{\ell}^{(0)}$, $\mathbf{h}_{\ell}^{(+)}$, and $\mathbf{h}_{\ell}^{(-)}$ for each layer $\ell$. Stacking these across all examples yields matrices $\mathbf{H}_{\ell}^{(0)}$, $\mathbf{H}_{\ell}^{(+)}$, and $\mathbf{H}_{\ell}^{(-)}$ of shape $N \times d$. We center each matrix and compute cross-covariance matrices:
+We perform forward passes on all three variants, capturing the last-token MLP activations for each layer $\ell$. Stacking these across all examples yields matrices $\mathbf{H}_{\ell}^{(0), (+), (-)}$ of shape $N \times d$. We center each matrix and compute cross-covariance matrices:
 
 $$\mathbf{\Omega}_{\ell}^{+} = (\mathbf{H}_{\ell}^{(0)})^\top \mathbf{H}_{\ell}^{(+)} / N, \quad \mathbf{\Omega}_{\ell}^{-} = (\mathbf{H}_{\ell}^{(0)})^\top \mathbf{H}_{\ell}^{(-)} / N$$
 
