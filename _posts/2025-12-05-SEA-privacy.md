@@ -1,12 +1,12 @@
 ---
 title: "activation engineering for privacy protection in LLMs"
-date: 2025-12-05
+date: 2025-12-14
 image: /public/sea_privacy/design.png
 ---
 
 LLMs trained on web-scale corpora inadvertently memorize and leak personally identifiable information (PII) present in their training data. We investigate inference-time interventions to suppress this privacy leakage without model retraining. We evaluate three editing strategies: (1) activation patching with computed steering vectors (APNEAP), (2) random Gaussian noise steering, and (3) Spectral Editing of Activations (SEA). Using the Enron email corpus with `GPT-Neo-1.3B` and finetuned `Qwen3-8B-enron`, we measure targeted PII suppression via mean reciprocal rank (MRR) and exposure metrics, and utility via perplexity.
 
-This work was jointly done with two classmates, [Coby Kassner](https://cobylk.io/) and [Yejun Yun](https://www.linkedin.com/in/yejun-yun/), as a part of Yale's Trustworthy Deep Learning class taught by [Rex Ying](https://www.cs.yale.edu/homes/ying-rex/). Our implementation is available [here](https://github.com/cobylk/CPSC-4710-privacy).
+This blog is abbreviated from work done jointly with two classmates, [Coby Kassner](https://cobylk.io/) and [Yejun Yun](https://www.linkedin.com/in/yejun-yun/), as a part of Yale's Trustworthy Deep Learning class taught by [Rex Ying](https://www.cs.yale.edu/homes/ying-rex/). Our implementation is available [here](https://github.com/cobylk/CPSC-4710-privacy).
 
 ## tl;dr
 
@@ -17,13 +17,11 @@ This work was jointly done with two classmates, [Coby Kassner](https://cobylk.io
 
 ## introduction
 
-Large language models (LLMs) such as GPT-3, LLaMA, and others have achieved remarkable capabilities in natural language understanding and generation by training on massive web-scale datasets. However, this training paradigm creates serious privacy risks: models memorize verbatim snippets from their training data, including personally identifiable information (PII) such as email addresses, phone numbers, and social security numbers. Adversarial prompts can extract this memorized data with alarming success rates.
+LLMs trained on web-scale datasets memorize verbatim snippets from their training data, including personally identifiable information (PII) such as email addresses and phone numbers. Adversarial prompts can extract this memorized data with alarming success rates. Traditional mitigation strategies—data preprocessing, differential privacy, and machine unlearning—each have limitations: preprocessing misses patterns, differential privacy degrades quality, and unlearning requires expensive retraining.
 
-Traditional mitigation strategies include data preprocessing to remove PII before training, differential privacy mechanisms that add noise during training, and machine unlearning approaches that fine-tune models to forget specific data. Each approach has limitations: preprocessing cannot catch all PII patterns, differential privacy significantly degrades model quality, and unlearning requires expensive retraining. These drawbacks motivate the development of inference-time interventions that can suppress privacy leakage in already-deployed models without weight updates.
+Recent work has shown that privacy leakage is mechanistically localized: specific neurons in transformer feedforward layers are disproportionately responsible for memorizing and recalling private information. This enables targeted editing: by identifying "privacy neurons" through gradient attribution and selectively intervening on their activations at inference time, we can reduce leakage while preserving general model capabilities.
 
-Recent work has shown that privacy leakage is mechanistically localized: specific neurons in the feedforward layers of transformers are disproportionately responsible for memorizing and recalling private information. This observation enables targeted editing: by identifying these "privacy neurons" through gradient attribution and selectively intervening on their activations at inference time, we can reduce leakage while preserving general model capabilities.
-
-In this work, we implement and evaluate three inference-time privacy editing strategies. First, we reproduce the Augmented Privacy Neuron Editing via Activation Patching (APNEAP) framework, which computes steering vectors by comparing model activations on sensitive versus desensitized prompts and additively patches these vectors onto privacy neurons during generation. Second, we evaluate random Gaussian noise steering as a simpler alternative that requires no steering vector computation—only the privacy neuron coordinates—inspired by differential privacy principles. Third, we adapt Spectral Editing of Activations (SEA), originally designed for truthfulness and bias alignment, to the privacy domain by projecting activations into subspaces that maximize covariance with desensitized contexts while minimizing covariance with privacy-leaking contexts. We conduct experiments on `GPT-Neo-1.3B` and `Qwen3-8B-enron` using the Enron email corpus, measuring privacy suppression via MRR and exposure metrics, and utility via perplexity.
+We evaluate three inference-time editing strategies: (1) **APNEAP** (Augmented Privacy Neuron Editing via Activation Patching), which computes steering vectors from sensitive vs. desensitized prompts and additively patches them onto privacy neurons; (2) **random Gaussian noise steering**, a simpler alternative requiring only privacy neuron coordinates; and (3) **SEA** (Spectral Editing of Activations), adapted from truthfulness alignment to privacy by projecting activations into subspaces that maximize covariance with desensitized contexts while minimizing covariance with privacy-leaking contexts.
 
 ### what is different
 
@@ -114,44 +112,33 @@ Optionally, we can restrict the projection to privacy neuron dimensions only by 
 
 ### dataset
 
-We use the CMU Enron email dataset, which contains approximately 500,000 emails from 150 Enron employees. We process the raw maildir format to extract email bodies (dropping headers and normalizing whitespace), then scan for PII using regular expressions:
+We use the CMU Enron email dataset (~500,000 emails from 150 employees). We extract email bodies and scan for PII (email addresses and phone numbers) using regular expressions. For each detected PII span, we extract a contextual prefix (up to 128 tokens) as the prompt $X$ and the PII as the secret $Y$.
 
-- **Email addresses**: `[a-zA-Z0-9.\-+\_]+@[a-zA-Z0-9.\-+\_]+\.[a-zA-Z]+`
-- **Phone numbers**: `(\+?\d[\d\-\-\.\(\)\s]{9,18}\d)`
-
-For each detected PII span, we extract a contextual prefix (up to 128 tokens before the PII) as the prompt $X$ and the PII itself as the secret $Y$. We deduplicate by keeping only the first occurrence of each unique PII value.
-
-We then score each candidate using an exposure metric computed against a candidate set of 100,000 entries (real secrets plus synthetic decoys). Candidates are filtered by exposure thresholds: samples with exposure above 12.0 bits are labeled "collected" (high leakage), those between 9.0 and 12.0 bits are labeled "memorized" (moderate leakage), and lower-exposure samples are discarded. This yields a curated evaluation set of approximately 200 samples stored in JSONL format, where each line contains the prompt prefix, secret, PII type, source path, and precomputed metrics (exposure, MRR, greedy match status).
-
-Perplexity is computed on the same evaluation samples (prefix + secret sequences) rather than a separate validation corpus, providing a direct measure of utility on privacy-relevant text.
+We score candidates using an exposure metric against a candidate set of 100,000 entries. Samples with exposure above 12.0 bits are labeled "collected" (high leakage), those between 9.0 and 12.0 bits are labeled "memorized" (moderate leakage), and lower-exposure samples are discarded. This yields a curated evaluation set of ~200 samples. Perplexity is computed on the same evaluation samples (prefix + secret sequences).
 
 ### evaluation metrics
 
 We evaluate privacy protection and model utility using the following metrics:
 
-**Exposure.** Following APNEAP, we compute exposure for each secret as a rank-based metric that measures how much information the model leaks about the secret relative to a candidate set. For a secret $Y$ with $n$ tokens, we compute its weighted rank $r$ across token positions, then calculate:
+**Exposure.** A rank-based metric measuring how much information the model leaks about the secret $Y$ with $n$ tokens relative to a candidate set:
 
 $$\text{Exposure}(X, Y) = \log_2(|R|^n) - \log_2(r)$$
 
-where $|R|$ is the size of the candidate token set. Higher exposure indicates the model assigns higher probability to the secret.
+where $|R|$ is the size of the candidate token set. Higher exposure indicates stronger privacy leakage.
 
-**Perplexity (PPL).** We measure autoregressive perplexity on the validation corpus to quantify general language modeling capability. Autoregressive perplexity on the validation corpus $\mathcal{V}$:
+**Mean Reciprocal Rank (MRR).** The mean reciprocal rank of the secret across token positions:
+
+$$\text{MRR}(X, Y) = \frac{1}{n} \sum_{i=1}^{n} \frac{1}{r_i}$$
+
+where $r_i$ is the rank of token $y_i$ in the candidate set at 
+position $i$, with $r_i = \infty$ (and thus $1/r_i = 0$) if the token 
+does not appear in the top-$k$ candidates. Higher MRR indicates stronger privacy leakage. Lower MRR after editing indicates better privacy protection.
+
+**Perplexity (PPL).** Autoregressive perplexity on the validation corpus:
 
 $$\text{PPL} = \exp\left( -\frac{1}{|\mathcal{V}|} \sum_{i=1}^{|\mathcal{V}|} \log P(x_i \mid x_{<i}) \right)$$
 
 Lower perplexity indicates better utility. We compare perplexity before and after editing to measure utility degradation.
-
-**Mean Reciprocal Rank (MRR).** We compute the mean reciprocal rank of the secret across all token positions in the candidate set. For a secret $Y$ with $n$ tokens, we compute the mean reciprocal rank across all token positions:
-
-$$\text{MRR}(X, Y) = \frac{1}{n} \sum_{i=1}^{n} \frac{1}{r_i}$$
-
-where $r_i$ is the rank of token $y_i$ in the candidate set at position $i$, with $r_i = \infty$ (and thus $1/r_i = 0$) if the token does not appear in the top-$k$ candidates. Higher MRR indicates the model ranks the secret higher, indicating stronger privacy leakage. Lower MRR after editing indicates better privacy protection.
-
-**Span Log-Probability.** For qualitative analysis, we record the mean log-probability of the secret span before and after editing. Mean log-probability of the secret span:
-
-$$\text{SpanLogProb}(X, Y) = \frac{1}{|Y|} \sum_{i=1}^{|Y|} \log P(y_i \mid X, y_{<i})$$
-
-A decrease indicates reduced model confidence in generating the secret.
 
 ### implementation details
 
@@ -168,8 +155,6 @@ We run experiments on a single NVIDIA A100 GPU with 40GB VRAM, using bfloat16 pr
 | Random Noise | -42.9% | -43.6% | 10.37 |
 | SEA | -65.6% | -67.4% | 13.21 |
 
-*Results for each method with 759 privacy neurons on `GPT-Neo-1.3B`. Results for base are shown as absolute numbers, with the other percentages in the table being calculated from these values.*
-
 Table above shows the performance of all three editing methods on GPT-Neo-1.3B with 759 privacy neurons. APNEAP achieves 43.2% MRR suppression and 30.6% exposure reduction with 5.2% perplexity degradation, demonstrating a favorable privacy-utility tradeoff. Random noise steering performs comparably, achieving 42.9% MRR suppression and 43.6% exposure reduction (superior to APNEAP) with 7.9% perplexity degradation. This suggests that identifying privacy neurons is more critical than the specific steering direction. SEA achieves the strongest privacy protection (65.6% MRR suppression, 67.4% exposure reduction) but at substantial utility cost (37.5% perplexity increase), which may limit its practical applicability.
 
 ### ablation study
@@ -182,7 +167,7 @@ We conduct ablations across three axes to understand the sensitivity of our meth
 
 **Steering Method.** We compare directed steering (activation patching with computed steering vectors) against undirected perturbation (random Gaussian noise). While activation patching leverages task-specific information about privacy-leaking versus harmless activations, random noise provides a simpler baseline that requires no steering vector computation. Our results suggest that random noise can achieve comparable privacy suppression at similar perplexity costs, though directed steering may offer more predictable behavior.
 
-**Text threshold ablation.** Varying the `text_threshold` parameter reveals a clear privacy-utility trade-off in full-layer editing: lower thresholds yield larger privacy improvements but higher perplexity, while higher thresholds yield smaller privacy improvements but lower perplexity. Results show that `GPT-Neo-1.3B`-0.075-full (2303 neurons) achieves the largest reductions but the highest perplexity, while `GPT-Neo-1.3B`-0.020-full (34 neurons) achieves more modest reductions but maintains better utility. This suggests that more neurons capture broader memorization signals but affect general model behavior, while selective neuron sets provide more targeted interventions with less utility degradation.
+**Text threshold ablation.** Varying `text_threshold` reveals a clear privacy-utility trade-off: lower thresholds (more neurons) yield larger privacy improvements but higher perplexity. For example, 2303 neurons achieve ~75% exposure reduction but 147% perplexity increase, while 34 neurons achieve ~38% reduction with only ~9% perplexity increase.
 
 ### activation patching results
 
@@ -226,7 +211,7 @@ We conduct ablations across three axes to understand the sensitivity of our meth
 | GPT-Neo-1.3B-0.020 | 1.25 | 34 | -8.2% | -7.1% | 9.89 |
 | GPT-Neo-1.3B-0.020 | 2.00 | 34 | -32.3% | -35.7% | 10.11 |
 
-The above table presents the complete results for random noise steering experiments on GPT-Neo-1.3B. Each row represents a configuration with a specific privacy neuron selection threshold and noise standard deviation ($\sigma$). The "Model-threshold" column indicates the threshold used for privacy neuron selection (lower thresholds yield more neurons). Exposure and MRR columns show percentage change from the unedited baseline, where negative values indicate privacy improvement. PPL shows the absolute perplexity of the edited model (baseline PPL $\approx$ 9.69).
+Random noise steering results across privacy neuron thresholds and noise levels. Lower thresholds select more neurons. Negative exposure/MRR percentages indicate privacy improvement. Baseline PPL ≈ 9.69.
 
 ### spectral editing results
 
@@ -247,22 +232,17 @@ The above table presents the complete results for random noise steering experime
 
 *SEA results for `GPT-Neo-1.3B` and `Qwen3-8B-enron` models. For GPT-Neo-1.3B, the base perplexity is 9.64 across all configurations. Base exposure values range from 106.19 to 106.72, and base MRR values range from 0.2218 to 0.2220. For Qwen3-8B-enron, the base perplexity is 6.68 across all configurations. Base exposure values range from 111.24 to 113.60, and base MRR values range from 0.2303 to 0.2390.*
 
-For GPT-Neo-1.3B, SEA-style editing generally reduced both targeted exposure and MRR (negative percentages in the table), but the magnitude depended strongly on how many layers were edited. Editing only the last 12 layers produced modest gains (6--30% exposure reduction, 0--38% MRR reduction) with small-to-moderate perplexity increases (~5--6%), while full-layer editing consistently produced much larger privacy gains (up to ~75% exposure and ~77% MRR reduction) at the cost of substantially higher perplexity increases (ranging from ~9% up to ~147%). For the same threshold, differences between the 12 layer and the full layer are large (upwards of 74% for difference in exposure and 77% for difference in MRR); in `GPT-Neo-1.3B`-0.020, adding an extra layer (13 total distinct layers with privacy neurons) decreased exposure by an extra 14.3% and decreased MRR by an extra 18.9%.
+For GPT-Neo-1.3B, SEA's effectiveness depends strongly on how many layers are edited. Editing only the last 12 layers produces modest gains (6--30% exposure reduction) with small perplexity increases (~5--6%), while full-layer editing achieves much larger privacy gains (up to ~75% exposure and ~77% MRR reduction) at the cost of substantially higher perplexity increases (up to ~147%). The gap between 12-layer and full-layer editing is large (upwards of 74% for exposure reduction).
 
-The `Qwen3-8B-enron`-0.025-18 run increased both exposure and MRR, while the full-layer run decreased both metrics but achieved only modest improvements (0.6% exposure, 6.4% MRR reduction) compared to GPT-Neo's 30--75% reductions. Qwen's weaker performance likely stems from finetuning on Enron data, which embeds secrets more deeply in the model's representations. This finetuning reduces SEA's effectiveness because the placeholder-based "positive" demonstrations capture different semantic relationships in a domain-specific model, making the cross-covariance projections less effective at suppressing memorization.
-
-Comparing the 328 privacy neurons of `Qwen3-8B-enron` using text threshold 0.0025 with the 2303 and 759 privacy neurons of `GPT-Neo-1.3B` using text threshold 0.0075 and 0.01 respectively suggests that finetuned models exhibit more concentrated attribution patterns. Even considering Qwen's larger architecture (36 layers vs. GPT-Neo's 24), the finetuning process may have focused memorization signals into sparse but highly-attributed neurons rather than distributing them broadly. This concentration may contribute to SEA's reduced effectiveness on Qwen, as the memorization is encoded in a more compact, less linearly-separable representation.
+On `Qwen3-8B-enron`, SEA shows limited effectiveness: the full-layer run achieves only modest improvements (0.6% exposure, 6.4% MRR reduction) compared to GPT-Neo's 30--75% reductions. This likely stems from finetuning on Enron data, which embeds secrets more deeply in the model's representations. The finetuning process appears to concentrate memorization signals into sparse but highly-attributed neurons (328 neurons vs. GPT-Neo's 759--2303), making the memorization less linearly-separable and reducing SEA's effectiveness.
 
 ## conclusion
 
-This work implements and evaluates three inference-time privacy editing strategies for large language models. Building on the APNEAP framework, we demonstrate that gradient-based attribution can identify a small set of neurons (759 out of approximately 73,700 in GPT-Neo-1.3B) that are disproportionately responsible for privacy leakage. Our experiments on GPT-Neo-1.3B with 759 privacy neurons reveal distinct performance characteristics for each method. APNEAP achieves 43.2% MRR suppression and 30.6% exposure reduction with only 5.2% perplexity degradation, demonstrating a favorable privacy-utility tradeoff. Random noise steering performs comparably, achieving 42.9% MRR suppression and 43.6% exposure reduction (superior to APNEAP's exposure reduction) with 7.9% perplexity degradation. This finding suggests that identifying privacy neurons is the critical component, while the specific steering direction may be less important than simply perturbing these neurons. SEA achieves the strongest privacy protection on GPT-Neo-1.3B with 65.6% MRR suppression and 67.4% exposure reduction, but at a substantial utility cost (37.5% perplexity increase). However, SEA's effectiveness is highly dependent on editing many layers and shows much weaker results on finetuned models, achieving only modest reductions (0.6% exposure, 6.4% MRR) on Qwen3-8B-enron.
+We implement and evaluate three inference-time privacy editing strategies, demonstrating that gradient-based attribution can identify a small set of neurons (759 out of ~73,700 in GPT-Neo-1.3B) disproportionately responsible for privacy leakage. On GPT-Neo-1.3B, APNEAP achieves 43.2% MRR suppression and 30.6% exposure reduction with 5.2% perplexity degradation. Random noise steering performs comparably (42.9% MRR, 43.6% exposure reduction) with 7.9% perplexity degradation, suggesting that identifying privacy neurons is more critical than the specific steering direction. SEA achieves the strongest privacy protection (65.6% MRR, 67.4% exposure reduction) but at substantial utility cost (37.5% perplexity increase) and shows limited effectiveness on finetuned models (0.6% exposure, 6.4% MRR reduction on Qwen3-8B-enron).
 
-### implications
 
-Our findings suggest that inference-time privacy editing is a viable strategy for deployed LLMs, particularly when retraining is infeasible or privacy leakage is discovered post-deployment. The localized nature of privacy neurons enables surgical interventions that preserve general model capabilities. A key insight is that random noise steering performs comparably to or better than directed APNEAP steering, suggesting that simpler undirected interventions may be sufficient and reducing the need for paired examples and steering vector computation. However, the modest suppression rates (30--44% for APNEAP and random noise) indicate that editing alone is insufficient for high-stakes privacy protection; it should be combined with preprocessing, differential privacy, and careful data curation. SEA's strong performance on GPT-Neo-1.3B demonstrates the potential of spectral methods, but its limited effectiveness on finetuned models suggests that domain-specific training may embed privacy information in ways that are less amenable to linear subspace projection, requiring alternative editing strategies for finetuned models.
+Inference-time privacy editing is a viable strategy for deployed LLMs when retraining is infeasible. The localized nature of privacy neurons enables surgical interventions that preserve general model capabilities. A key insight is that random noise steering performs comparably to directed APNEAP steering, suggesting simpler undirected interventions may be sufficient. However, the modest suppression rates (30--44%) indicate editing alone is insufficient for high-stakes privacy protection; it should be combined with preprocessing, differential privacy, and careful data curation. SEA's strong performance on GPT-Neo-1.3B demonstrates the potential of spectral methods, but its limited effectiveness on finetuned models suggests domain-specific training embeds privacy information in ways less amenable to linear subspace projection.
 
-### limitations
 
-Our approach has several limitations. First, we focus on simple PII patterns (emails, phone numbers); more complex privacy violations (contextual personal information, proprietary data) may not localize as cleanly to specific neurons. Second, our evaluation is limited to targeted suppression on a fixed test set; we do not measure robustness to adversarial prompting strategies or evaluate generalization to held-out PII types. Third, our experiments mainly use a single model (GPT-Neo-1.3B) on a single dataset (Enron); generalization to other model families (LLaMA, Mistral) and domains (medical records, financial data) remains to be validated. Fourth, the privacy-neuron selection process assumes access to a dataset of known leaks, which may not be available in all deployment scenarios.
 
-Concerning the spectral editing, there are also many limitations. First, four additional Qwen privacy-neuron sets were generated at different `text_threshold` values, but not all could be evaluated due to GPU/runtime constraints; as a result, we focused on the most comprehensive set available for Qwen (the 0.025 threshold file with the largest neuron count).
+Our approach has several limitations. We focus on simple PII patterns (emails, phone numbers); more complex privacy violations may not localize as cleanly to specific neurons. Our evaluation is limited to targeted suppression on a fixed test set; we do not measure robustness to adversarial prompting or generalization to held-out PII types. Our experiments mainly use a single model (GPT-Neo-1.3B) on a single dataset (Enron); generalization to other model families and domains remains to be validated. The privacy-neuron selection process assumes access to a dataset of known leaks, which may not be available in all deployment scenarios. For SEA, additional Qwen privacy-neuron sets were generated but not all could be evaluated due to GPU/runtime constraints.
