@@ -63,14 +63,15 @@ where $m=10$ interpolation steps are used, $y_1$ is the first token of the secre
 
 Raw attributions are noisy and vary across examples. Following APNEAP, we use a two-threshold voting procedure. For each example $i$ and layer $\ell$:
 
-1. Compute $\max_{\ell,i} = \max_j |\mathrm{IG}_{\ell,j,i}|$
-2. Keep neuron $(\ell, j)$ if $\left|\mathrm{IG}_{\ell,j,i}\right| > 0.1 \cdot \max_{\ell,i}$ (text-level threshold)
+1. Compute $\max_{\ell,i} = \max_j \vert \mathrm{IG}_{\ell,j,i} \vert$
+2. Keep neuron $(\ell, j)$ if $\vert \mathrm{IG}_{\ell,j,i} \vert > 0.1 \cdot \max_{\ell,i}$ (text-level threshold)
 
 We then count how many examples activate each neuron and retain neurons that appear in more than 50% of examples (batch-level threshold). The result is a set $\mathcal{N} = \{(\ell, j)\}$ of privacy neuron coordinates that are consistently implicated in leakage across the dataset.
 
 ### activation patching
 
-For each leak example $(X, Y)$, we construct a harmless variant $X'$ by replacing the secret $Y$ with a placeholder token (e.g., "placeholder"). We perform forward passes on both $X$ and $X'$, capturing the MLP activations $\mathbf{h}_{\ell}$ and $\mathbf{h}'_{\ell}$ at every layer. We compute the steering vector as the mean difference:
+For each leak example $(X, Y)$, we construct a harmless variant $X'$ by replacing the secret $Y$ with a placeholder token (e.g., "placeholder"). We perform forward passes on both $X$ and $X'$, capturing the MLP activations $\mathbf{h}_{\ell}$
+and $\mathbf{h}'_{\ell}$ at every layer. We compute the steering vector as the mean difference:
 
 $$\mathbf{v}_{\ell} = \frac{1}{|\mathcal{T}|} \sum_{i \in \mathcal{T}} (\mathbf{h}_{\ell,i}' - \mathbf{h}_{\ell,i})$$
 
