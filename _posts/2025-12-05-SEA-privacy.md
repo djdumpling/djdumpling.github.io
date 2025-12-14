@@ -21,9 +21,7 @@ LLMs trained on web-scale datasets memorize verbatim snippets from their trainin
 
 Recent work has shown that **privacy leakage is mechanistically localized**: specific neurons in transformer feedforward layers are disproportionately responsible for memorizing and recalling private information. This enables targeted editing: by identifying **"privacy neurons"** through gradient attribution and selectively intervening on their activations at inference time, we can reduce leakage while preserving general model capabilities.
 
-We evaluate three inference-time editing strategies: (1) **APNEAP** (Augmented Privacy Neuron Editing via Activation Patching), which computes steering vectors from sensitive vs. desensitized prompts and additively patches them onto privacy neurons; (2) **random Gaussian noise steering**, a simpler alternative requiring only privacy neuron coordinates; and (3) **SEA** (Spectral Editing of Activations), adapted from truthfulness alignment to privacy by projecting activations into subspaces that maximize covariance with desensitized contexts while minimizing covariance with privacy-leaking contexts.
-
-### what is different
+### what's different
 
 Our implementation extends prior work in several ways. First, we adapt SEA, originally designed for truthfulness and bias, to the privacy domain by *formulating PII suppression as a subspace projection problem*. Second, we provide a modular, reusable codebase that separates attribution, selection, and editing into independent stages, enabling future researchers to swap out components easily. Third, we introduce the option to use *layer-suffix editing* and to *scope spectral projections to privacy neurons only*, hybridizing the targeted nature of APNEAP with the principled subspace geometry of SEA.
 
@@ -47,7 +45,7 @@ where $\mathcal{T}$ is a set of known privacy leaks (the targeted PII we want to
 
 ## methods
 
-Our approach follows a three-stage pipeline adapted from APNEAP: (1) attribution to identify privacy neurons, (2) selection to aggregate attributions across examples, and (3) editing to intervene on activations at inference time. We implement three editing strategies: activation patching (the APNEAP baseline), steering with random noise, and spectral editing (our proposed extensions).
+We evaluate three inference-time editing strategies: (1) **APNEAP** (Augmented Privacy Neuron Editing via Activation Patching), which computes steering vectors from sensitive vs. desensitized prompts and additively patches them onto privacy neurons; (2) **random Gaussian noise steering**, a simpler alternative requiring only privacy neuron coordinates; and (3) **SEA** (Spectral Editing of Activations), adapted from truthfulness alignment to privacy by projecting activations into subspaces that maximize covariance with desensitized contexts while minimizing covariance with privacy-leaking contexts.
 
 ![Methodology flowchart](/public/sea_privacy/design.png)
 
@@ -64,7 +62,7 @@ where $m=10$ interpolation steps are used, $y_1$ is the first token of the secre
 Raw attributions are noisy and vary across examples. Following APNEAP, we use a two-threshold voting procedure. For each example $i$ and layer $\ell$:
 
 1. Compute $\max_{\ell,i} = \max_j \vert \mathrm{IG}_{\ell,j,i} \vert$
-2. Keep neuron $(\ell, j)$ if $\vert \mathrm{IG}_{\ell,j,i} \vert > 0.1 \cdot \max_{\ell,i}$ (text-level threshold)
+2. For text-level threshold, Keep neuron $(\ell, j)$ if $$\vert \mathrm{IG}_{\ell,j,i} \vert > 0.1 \cdot \max_{\ell,i}$$
 
 We then count how many examples activate each neuron and retain neurons that appear in more than 50% of examples (batch-level threshold). The result is a set $\mathcal{N} = \{(\ell, j)\}$ of privacy neuron coordinates that are consistently implicated in leakage across the dataset.
 
