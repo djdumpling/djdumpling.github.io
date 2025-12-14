@@ -23,9 +23,13 @@ google_analytics: G-97R68RHKQG
 #########################################################################################
 theme: "minima"
 
+markdown: kramdown
+
 kramdown:
-  syntax_highlighter_opts:
-    disable: true
+  input: GFM
+  math_engine: mathjax
+  math_engine_opts: {}
+
     
 plugins:
   - jekyll-feed

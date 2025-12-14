@@ -37,7 +37,7 @@ for some threshold $\tau$, indicating that the model assigns high probability to
 
 Our goal is to develop an inference-time intervention $\mathcal{E}$ that modifies the model's internal activations such that the edited model $M_{\mathcal{E}}$ satisfies:
 
-$$\min_{\mathcal{E}} \left\{ \mathbb{E}_{(X,Y) \in \mathcal{T}} \left[ P(Y \mid X, M_{\mathcal{E}}) \right], \quad \text{PPL}(M_{\mathcal{E}}, \mathcal{V}) - \text{PPL}(M_\theta, \mathcal{V}) \right\}$$
+$$\min_{\mathcal{E}} \left\{ \mathbb{E}_{(X,Y) \in \mathcal{T}} \left[ P(Y \mid X, M_{\mathcal{E}}) \right], \quad \mathrm{PPL}(M_{\mathcal{E}}, \mathcal{V}) - \mathrm{PPL}(M_\theta, \mathcal{V}) \right\}$$
 
 where $\mathcal{T}$ is a set of known privacy leaks (the targeted PII we want to suppress), $\mathcal{V}$ is a validation corpus of non-sensitive text, and PPL denotes perplexity (our measure of general model utility). This formulation seeks to reduce the probability of generating targeted private information while minimizing degradation in language modeling quality.
 
@@ -55,7 +55,7 @@ Our approach follows a three-stage pipeline adapted from APNEAP: (1) attribution
 
 We use integrated gradients to attribute each neuron's contribution to privacy leakage. For a given leak tuple $(X, Y)$, we tokenize $X$ and identify the position $t$ immediately before the first token of the secret $Y$. We then capture the intermediate activation $\mathbf{z}_{\ell}$ at the input to the MLP in layer $\ell$ at position $t$. The integrated gradient for neuron $j$ in layer $\ell$ is approximated as:
 
-$$\widehat{\text{IG}}_{\ell,j} = \frac{\mathbf{z}_{\ell,j}}{m} \sum_{k=1}^{m} \frac{\partial \log P(y_1 \mid X, \frac{k}{m}\mathbf{z}_{\ell})}{\partial \mathbf{z}_{\ell,j}}$$
+$$\widehat{\mathrm{IG}}_{\ell,j} = \frac{\mathbf{z}_{\ell,j}}{m} \sum_{k=1}^{m} \frac{\partial \log P(y_1 \mid X, \frac{k}{m}\mathbf{z}_{\ell})}{\partial \mathbf{z}_{\ell,j}}$$
 
 where $m=10$ interpolation steps are used, $y_1$ is the first token of the secret $Y$, and the gradient is computed via backpropagation. We normalize each gradient by the target token probability to account for varying confidence levels. This process is repeated for every layer $\ell \in \{0, 1, \ldots, 23\}$ and every neuron dimension $j \in \{0, 1, \ldots, 3071\}$, yielding an attribution vector per layer for each leak example.
 
@@ -63,8 +63,8 @@ where $m=10$ interpolation steps are used, $y_1$ is the first token of the secre
 
 Raw attributions are noisy and vary across examples. Following APNEAP, we use a two-threshold voting procedure. For each example $i$ and layer $\ell$:
 
-1. Compute $\text{max}_{\ell,i} = \max_j |\text{IG}_{\ell,j,i}|$
-2. Keep neuron $(\ell, j)$ if $|\text{IG}_{\ell,j,i}| > 0.1 \cdot \text{max}_{\ell,i}$ (text-level threshold)
+1. Compute $\max_{\ell,i} = \max_j |\mathrm{IG}_{\ell,j,i}|$
+2. Keep neuron $(\ell, j)$ if $\left|\mathrm{IG}_{\ell,j,i}\right| > 0.1 \cdot \max_{\ell,i}$ (text-level threshold)
 
 We then count how many examples activate each neuron and retain neurons that appear in more than 50% of examples (batch-level threshold). The result is a set $\mathcal{N} = \{(\ell, j)\}$ of privacy neuron coordinates that are consistently implicated in leakage across the dataset.
 
@@ -104,7 +104,7 @@ $$\mathbf{P}_{\ell}^{+} = \mathbf{U}_{\ell}^{+} (\mathbf{U}_{\ell}^{+})^\top, \q
 
 At inference, we apply both projections and renormalize:
 
-$$\mathbf{z}_{\ell}^{\text{sea}} = \frac{\|\mathbf{z}_{\ell}\|_2}{\|\mathbf{P}_{\ell}^{+} \mathbf{z}_{\ell} + \mathbf{P}_{\ell}^{-} \mathbf{z}_{\ell}\|_2} (\mathbf{P}_{\ell}^{+} \mathbf{z}_{\ell} + \mathbf{P}_{\ell}^{-} \mathbf{z}_{\ell})$$
+$$\mathbf{z}_{\ell}^{\mathrm{sea}} = \frac{\|\mathbf{z}_{\ell}\|_2}{\|\mathbf{P}_{\ell}^{+} \mathbf{z}_{\ell} + \mathbf{P}_{\ell}^{-} \mathbf{z}_{\ell}\|_2} (\mathbf{P}_{\ell}^{+} \mathbf{z}_{\ell} + \mathbf{P}_{\ell}^{-} \mathbf{z}_{\ell})$$
 
 Optionally, we can restrict the projection to privacy neuron dimensions only by masking the projection matrices.
 
@@ -122,13 +122,13 @@ We evaluate privacy protection and model utility using the following metrics:
 
 **Exposure.** A rank-based metric measuring how much information the model leaks about the secret $Y$ with $n$ tokens relative to a candidate set:
 
-$$\text{Exposure}(X, Y) = \log_2(|R|^n) - \log_2(r)$$
+$$\mathrm{Exposure}(X, Y) = \log_2(|R|^n) - \log_2(r)$$
 
 where $\mid R \mid$ is the size of the candidate token set. Higher exposure indicates stronger privacy leakage.
 
 **Mean Reciprocal Rank (MRR).** The mean reciprocal rank of the secret across token positions:
 
-$$\text{MRR}(X, Y) = \frac{1}{n} \sum_{i=1}^{n} \frac{1}{r_i}$$
+$$\mathrm{MRR}(X, Y) = \frac{1}{n} \sum_{i=1}^{n} \frac{1}{r_i}$$
 
 where $r_i$ is the rank of token $y_i$ in the candidate set at 
 position $i$, with $r_i = \infty$ (and thus $1/r_i = 0$) if the token 
@@ -136,7 +136,7 @@ does not appear in the top-$k$ candidates. Higher MRR indicates stronger privacy
 
 **Perplexity (PPL).** Autoregressive perplexity on the validation corpus:
 
-$$\text{PPL} = \exp\left( -\frac{1}{|\mathcal{V}|} \sum_{i=1}^{|\mathcal{V}|} \log P(x_i \mid x_{<i}) \right)$$
+$$\mathrm{PPL} = \exp\left( -\frac{1}{|\mathcal{V}|} \sum_{i=1}^{|\mathcal{V}|} \log P(x_i \mid x_{<i}) \right)$$
 
 Lower perplexity indicates better utility. We compare perplexity before and after editing to measure utility degradation.
 
@@ -144,7 +144,7 @@ Lower perplexity indicates better utility. We compare perplexity before and afte
 
 We run experiments on a single NVIDIA A100 GPU with 40GB VRAM, using bfloat16 precision to fit the 1.3B parameter model and activation caches in memory. All edits are applied via PyTorch forward hooks registered on the MLP modules (`transformer.h[i].mlp.c_fc`) without modifying model weights.
 
-**Privacy Neuron Distribution.** Using the integrated gradients attribution with thresholds $\tau_{\text{text}}=0.1$ and $\tau_{\text{batch}}=0.5$, we identify 759 privacy neurons distributed across 24 of the 24 layers. The distribution is concentrated in early-to-mid layers, with layers 2--4 containing the majority of privacy neurons (312 in layer 4, 201 in layer 3, 139 in layer 2), while later layers contain fewer neurons (e.g., 25 in layer 23).
+**Privacy Neuron Distribution.** Using the integrated gradients attribution with thresholds $\tau_{\mathrm{text}}=0.1$ and $\tau_{\mathrm{batch}}=0.5$, we identify 759 privacy neurons distributed across 24 of the 24 layers. The distribution is concentrated in early-to-mid layers, with layers 2--4 containing the majority of privacy neurons (312 in layer 4, 201 in layer 3, 139 in layer 2), while later layers contain fewer neurons (e.g., 25 in layer 23).
 
 ### main results
 
@@ -161,7 +161,7 @@ Table above shows the performance of all three editing methods on GPT-Neo-1.3B w
 
 We conduct ablations across three axes to understand the sensitivity of our methods to hyperparameter choices:
 
-**Privacy Neuron Count.** By varying the selection threshold $\tau_{\text{text}}$ from 0.0075 to 0.20, we obtain privacy neuron sets ranging from 2,303 neurons (3.1% of MLP dimensions) down to 34 neurons (0.05%). Results show that larger neuron sets generally achieve stronger privacy suppression but with greater utility cost, while smaller sets preserve perplexity but provide weaker protection.
+**Privacy Neuron Count.** By varying the selection threshold $\tau_{\mathrm{text}}$ from 0.0075 to 0.20, we obtain privacy neuron sets ranging from 2,303 neurons (3.1% of MLP dimensions) down to 34 neurons (0.05%). Results show that larger neuron sets generally achieve stronger privacy suppression but with greater utility cost, while smaller sets preserve perplexity but provide weaker protection.
 
 **Editing Strength.** For activation patching, we vary the steering coefficient $\alpha$. For random noise steering, we vary the standard deviation $\sigma$ from 0.1 to 2.0. Both show a consistent trade-off: stronger interventions yield greater exposure reduction at the cost of increased perplexity. The optimal operating point depends on the application's privacy-utility requirements.
 
