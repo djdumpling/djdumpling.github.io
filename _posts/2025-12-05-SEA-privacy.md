@@ -10,16 +10,16 @@ This blog is abbreviated from work done jointly with two classmates, [Coby Kassn
 
 ## tl;dr
 
-- **APNEAP baseline**: Achieves **43.2%** MRR suppression and **30.6%** exposure reduction with **5.2%** perplexity degradation on `GPT-Neo-1.3B` with 759 privacy neurons
+- **APNEAP**: Achieves **43.2%** MRR suppression and **30.6%** exposure reduction with **5.2%** perplexity degradation on `GPT-Neo-1.3B` with 759 privacy neurons
 - **Random noise steering**: Performs comparably, achieving **42.9%** MRR suppression and **43.6%** exposure reduction (superior to APNEAP) with **7.9%** perplexity degradation, suggesting that identifying privacy neurons is more critical than the specific steering direction
-- **SEA (Spectral Editing)**: Achieves the strongest privacy protection (**65.6%** MRR suppression, **67.4%** exposure reduction) but at substantial utility cost (**37.5%** perplexity increase) and shows limited effectiveness on finetuned models (**0.6%** exposure, **6.4%** MRR reduction on `Qwen3-8B-enron`)
+- **SEA**: Achieves the strongest privacy protection (**65.6%** MRR suppression, **67.4%** exposure reduction) but at substantial utility cost (**37.5%** perplexity increase) and shows limited effectiveness on finetuned models (**0.6%** exposure, **6.4%** MRR reduction on `Qwen3-8B-enron`)
 - **Key insight**: Simpler undirected interventions (random noise) can be as effective as complex steering-based approaches, with privacy neuron identification being the critical component
 
 ## introduction
 
-LLMs trained on web-scale datasets memorize verbatim snippets from their training data, including personally identifiable information (PII) such as email addresses and phone numbers. Adversarial prompts can extract this memorized data with alarming success rates. Traditional mitigation strategies—data preprocessing, differential privacy, and machine unlearning—each have limitations: preprocessing misses patterns, differential privacy degrades quality, and unlearning requires expensive retraining.
+LLMs trained on web-scale datasets memorize verbatim snippets from their training data, including personally identifiable information (PII) such as email addresses and phone numbers. Adversarial prompts can [extract this memorized data with alarming success rates](https://arxiv.org/abs/2012.07805), and [larger models memorize more](https://arxiv.org/abs/2202.07646) (largely due to data duplication). Traditional mitigation strategies—data preprocessing, differential privacy, and machine unlearning—each have limitations: preprocessing misses patterns, differential privacy degrades quality, and unlearning requires expensive retraining.
 
-Recent work has shown that **privacy leakage is mechanistically localized**: specific neurons in transformer feedforward layers are disproportionately responsible for memorizing and recalling private information. This enables targeted editing: by identifying **"privacy neurons"** through gradient attribution and selectively intervening on their activations at inference time, we can reduce leakage while preserving general model capabilities.
+Recent work has shown that [privacy leakage is mechanistically localized](https://arxiv.org/abs/2202.05262): specific neurons in transformer feedforward layers are disproportionately responsible for memorizing and recalling private information. This enables targeted editing: by identifying **"privacy neurons"** through gradient attribution and selectively intervening on their activations at inference time, we can reduce leakage while preserving general model capabilities.
 
 ### what's different
 
@@ -39,19 +39,19 @@ $$\min_{\mathcal{E}} \left\{ \mathbb{E}_{(X,Y) \in \mathcal{T}} \left[ P(Y \mid 
 
 where $\mathcal{T}$ is a set of known privacy leaks (the targeted PII we want to suppress), $\mathcal{V}$ is a validation corpus of non-sensitive text, and PPL denotes perplexity (our measure of general model utility). This formulation seeks to reduce the probability of generating targeted private information while minimizing degradation in language modeling quality.
 
-**Base Model:** We use `GPT-Neo-1.3B`, an open-source autoregressive transformer with 24 layers and 3072-dimensional hidden states, trained on the Pile dataset. GPT-Neo was chosen for its accessibility, moderate size that allows rapid iteration, and architectural similarity to GPT-2/GPT-3, making our findings transferable to other models in this family. We also explore `Qwen3-8B-enron`, finetuned off `Qwen3-8B` for few epochs on Enron with LoRA. This model was chosen for its larger size and its domain-specific finetuning on Enron data, which provides a more realistic evaluation scenario where the model has prior exposure to the privacy-sensitive domain.
+**Base Model:** We use [GPT-Neo-1.3B](https://huggingface.co/EleutherAI/gpt-neo-1.3B), an open-source autoregressive transformer with 24 layers and 3072-dimensional hidden states, trained on the Pile dataset. `GPT-Neo` was chosen for its accessibility, moderate size that allows rapid iteration, and architectural similarity to GPT-2/GPT-3, making our findings transferable to other models in this family. We also explore [Qwen3-8B-enron](https://huggingface.co/Tomasal/Qwen3-8B-enron), finetuned off `Qwen3-8B` for few epochs on Enron with LoRA. This model was chosen for its larger size and its domain-specific finetuning on Enron data, which provides a more realistic evaluation scenario where the model has prior exposure to the privacy-sensitive domain.
 
 **Trustworthy Aspect:** Our project focuses on **privacy**, specifically mitigating memorization and leakage of personally identifiable information. Privacy is a critical trustworthiness concern for deployed LLMs: models trained on web data can regurgitate sensitive information about individuals who never consented to their data being used in this way. By developing inference-time interventions that reduce privacy leakage without requiring model retraining, we contribute to making LLMs safer and more aligned with privacy regulations such as GDPR and CCPA.
 
 ## methods
 
-We evaluate three inference-time editing strategies: (1) **APNEAP** (Augmented Privacy Neuron Editing via Activation Patching), which computes steering vectors from sensitive vs. desensitized prompts and additively patches them onto privacy neurons; (2) **random Gaussian noise steering**, a simpler alternative requiring only privacy neuron coordinates; and (3) **SEA** (Spectral Editing of Activations), adapted from truthfulness alignment to privacy by projecting activations into subspaces that maximize covariance with desensitized contexts while minimizing covariance with privacy-leaking contexts.
+We evaluate three inference-time editing strategies: (1) [APNEAP](https://aclanthology.org/2024.findings-acl.315.pdf), which computes steering vectors from sensitive vs. desensitized prompts and additively patches them onto privacy neurons (more [here](https://arxiv.org/abs/2308.10248)); (2) **random Gaussian noise steering**, a simpler alternative requiring only privacy neuron coordinates; and (3) [SEA](https://arxiv.org/abs/2405.09719), adapted from truthfulness alignment to privacy by projecting activations into subspaces that maximize covariance with desensitized contexts while minimizing covariance with privacy-leaking contexts.
 
 ![Methodology flowchart](/public/sea_privacy/design.png)
 
 ### privacy neuron attribution
 
-We use integrated gradients to attribute each neuron's contribution to privacy leakage. For a given leak tuple $(X, Y)$, we tokenize $X$ and identify the position $t$ immediately before the first token of the secret $Y$. We then capture the intermediate activation $\mathbf{z}_{\ell}$ at the input to the MLP in layer $\ell$ at position $t$. The integrated gradient for neuron $j$ in layer $\ell$ is approximated as:
+We use [integrated gradients](https://arxiv.org/abs/1703.01365) to attribute each neuron's contribution to privacy leakage. For a given leak tuple $(X, Y)$, we tokenize $X$ and identify the position $t$ immediately before the first token of the secret $Y$. We then capture the intermediate activation $\mathbf{z}_{\ell}$ at the input to the MLP in layer $\ell$ at position $t$. The integrated gradient for neuron $j$ in layer $\ell$ is approximated as:
 
 $$\widehat{\mathrm{IG}}_{\ell,j} = \frac{\mathbf{z}_{\ell,j}}{m} \sum_{k=1}^{m} \frac{\partial \log P(y_1 \mid X, \frac{k}{m}\mathbf{z}_{\ell})}{\partial \mathbf{z}_{\ell,j}}$$
 
@@ -114,7 +114,7 @@ Optionally, we can restrict the projection to privacy neuron dimensions only by 
 
 ### dataset
 
-We use the CMU Enron email dataset (~500,000 emails from 150 employees). We extract email bodies and scan for PII (email addresses and phone numbers) using regular expressions. For each detected PII span, we extract a contextual prefix (up to 128 tokens) as the prompt $X$ and the PII as the secret $Y$.
+We use the [CMU Enron email dataset](https://www.cs.cmu.edu/~enron/) (~500,000 emails from 150 employees). We extract email bodies and scan for PII (email addresses and phone numbers) using regular expressions. For each detected PII span, we extract a contextual prefix (up to 128 tokens) as the prompt $X$ and the PII as the secret $Y$.
 
 We score candidates using an exposure metric against a candidate set of 100,000 entries. Samples with exposure above 12.0 bits are labeled "collected" (high leakage), those between 9.0 and 12.0 bits are labeled "memorized" (moderate leakage), and lower-exposure samples are discarded. This yields a curated evaluation set of ~200 samples. Perplexity is computed on the same evaluation samples (prefix + secret sequences).
 
