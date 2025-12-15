@@ -62,7 +62,7 @@ where $m=10$ interpolation steps are used, $y_1$ is the first token of the secre
 Raw attributions are noisy and vary across examples. Following APNEAP, we use a two-threshold voting procedure. For each example $i$ and layer $\ell$:
 
 1. Compute $\max_{\ell,i} = \max_j \vert \mathrm{IG}_{\ell,j,i} \vert$
-2. For text-level threshold, Keep neuron $(\ell, j)$ if $$\vert \mathrm{IG}_{\ell,j,i} \vert > 0.1 \cdot \max_{\ell,i}$$
+2. For text-level threshold, keep neuron $(\ell, j)$ if $$\vert \mathrm{IG}_{\ell,j,i} \vert > 0.1 \cdot \max_{\ell,i}$$
 
 We then count how many examples activate each neuron and retain neurons that appear in more than 50% of examples (batch-level threshold). The result is a set $\mathcal{N} = \{(\ell, j)\}$ of privacy neuron coordinates that are consistently implicated in leakage across the dataset.
 
@@ -173,66 +173,21 @@ We conduct ablations across three axes to understand the sensitivity of our meth
 
 ### activation patching results
 
-| Model-threshold | α | # Neurons | Exposure (%) | MRR (%) | PPL |
-|-----------------|---|-----------|--------------|----------|-----|
-| GPT-Neo-1.3B-0.0075 | 2.00 | 2303 | -24.6% | -36.3% | 9.78 |
-| GPT-Neo-1.3B-0.0075 | 3.00 | 2303 | -38.3% | -53.6% | 10.40 |
-| GPT-Neo-1.3B-0.01 | 2.00 | 759 | -19.4% | -26.5% | 9.74 |
-| GPT-Neo-1.3B-0.01 | 3.00 | 759 | -30.6% | -43.2% | 10.11 |
-| GPT-Neo-1.3B-0.0125 | 2.00 | 250 | -20.7% | -33.1% | 9.67 |
-| GPT-Neo-1.3B-0.0125 | 3.00 | 250 | -28.5% | -43.0% | 9.94 |
-| GPT-Neo-1.3B-0.015 | 2.00 | 99 | -14.7% | -23.0% | 9.67 |
-| GPT-Neo-1.3B-0.015 | 3.00 | 99 | -27.0% | -36.2% | 9.85 |
-| GPT-Neo-1.3B-0.02 | 2.00 | 34 | -14.6% | -26.0% | 9.62 |
-| GPT-Neo-1.3B-0.02 | 3.00 | 34 | -22.8% | -39.5% | 9.71 |
+![Privacy-Utility Trade-off for Activation Patching](/public/sea_privacy/privacy_utility_apneap.png)
 
-*Activation patching targeted metrics across privacy neuron thresholds and alphas. Negative percentages indicate privacy improvement.*
+*Activation patching results across privacy neuron thresholds and alphas. Marker shapes indicate α values (circle = 2.00, square = 3.00). Color indicates % perplexity increase. Negative percentages indicate privacy improvement.*
 
 ### random noise steering results
 
-| Model-threshold | Std | # Neurons | Exposure (%) | MRR (%) | PPL |
-|-----------------|-----|-----------|--------------|---------|-----|
-| GPT-Neo-1.3B-0.0075 | 0.10 | 2303 | -0.0% | 0.0% | 9.69 |
-| GPT-Neo-1.3B-0.0075 | 0.50 | 2303 | -1.4% | 0.0% | 9.75 |
-| GPT-Neo-1.3B-0.0075 | 1.25 | 2303 | -52.1% | -42.9% | 12.42 |
-| GPT-Neo-1.3B-0.0075 | 2.00 | 2303 | -96.6% | -100.0% | 52501.80 |
-| GPT-Neo-1.3B-0.01 | 0.10 | 759 | 0.0% | -0.0% | 9.69 |
-| GPT-Neo-1.3B-0.01 | 0.50 | 759 | -17.9% | -21.4% | 9.65 |
-| GPT-Neo-1.3B-0.01 | 1.25 | 759 | -43.6% | -42.9% | 10.37 |
-| GPT-Neo-1.3B-0.01 | 2.00 | 759 | -72.5% | -89.3% | 31.18 |
-| GPT-Neo-1.3B-0.0125 | 0.10 | 250 | -3.0% | -7.1% | 9.70 |
-| GPT-Neo-1.3B-0.0125 | 0.50 | 250 | -7.7% | -7.1% | 9.72 |
-| GPT-Neo-1.3B-0.0125 | 1.25 | 250 | -25.2% | -21.4% | 10.12 |
-| GPT-Neo-1.3B-0.0125 | 2.00 | 250 | -56.9% | -57.1% | 11.57 |
-| GPT-Neo-1.3B-0.015 | 0.10 | 99 | +0.5% | 0.0% | 9.70 |
-| GPT-Neo-1.3B-0.015 | 0.50 | 99 | -14.6% | -21.4% | 9.74 |
-| GPT-Neo-1.3B-0.015 | 1.25 | 99 | -22.0% | -21.4% | 10.01 |
-| GPT-Neo-1.3B-0.015 | 2.00 | 99 | -44.6% | -64.3% | 10.50 |
-| GPT-Neo-1.3B-0.020 | 0.10 | 34 | -0.0% | 0.0% | 9.69 |
-| GPT-Neo-1.3B-0.020 | 0.50 | 34 | -11.4% | -21.4% | 9.72 |
-| GPT-Neo-1.3B-0.020 | 1.25 | 34 | -8.2% | -7.1% | 9.89 |
-| GPT-Neo-1.3B-0.020 | 2.00 | 34 | -32.3% | -35.7% | 10.11 |
+![Privacy-Utility Trade-off for Random Noise Steering](/public/sea_privacy/privacy_utility_random.png)
 
-Random noise steering results across privacy neuron thresholds and noise levels. Lower thresholds select more neurons. Negative exposure/MRR percentages indicate privacy improvement. Baseline PPL ≈ 9.69.
+*Random noise steering results across privacy neuron thresholds and noise levels. Marker shapes indicate standard deviation values (circle = 0.10, square = 0.50, triangle = 1.25, diamond = 2.00). Color indicates % perplexity increase. Negative percentages indicate privacy improvement. Baseline PPL ≈ 9.69. Two datapoints were excluded from visualization due to extreme perplexity values: GPT-Neo-1.3B-0.0075 with std=2.00 achieved -96.6% exposure reduction and -100.0% MRR reduction but with PPL=52501.80 (542,000% increase), and GPT-Neo-1.3B-0.01 with std=2.00 achieved -72.5% exposure reduction and -89.3% MRR reduction but with PPL=31.18 (222% increase).*
 
 ### spectral editing results
 
-| Model-threshold-layers | # Layers | # Neurons | Exposure (%) | MRR (%) | PPL |
-|------------------------|----------|-----------|--------------|---------|-----|
-| GPT-Neo-1.3B-0.075-12 | 24 | 2303 | -1.0% | 0.0% | 10.18 |
-| GPT-Neo-1.3B-0.075-full | 24 | 2303 | -75.0% | -77.1% | 23.82 |
-| GPT-Neo-1.3B-0.01-12 | 24 | 759 | -6.0% | -7.6% | 10.12 |
-| GPT-Neo-1.3B-0.01-full | 24 | 759 | -67.4% | -65.6% | 13.14 |
-| GPT-Neo-1.3B-0.0125-12 | 19 | 250 | -8.2% | -7.6% | 10.15 |
-| GPT-Neo-1.3B-0.0125-full | 19 | 250 | -65.3% | -61.1% | 11.09 |
-| GPT-Neo-1.3B-0.015-12 | 16 | 99 | -29.8% | -38.2% | 10.25 |
-| GPT-Neo-1.3B-0.015-full | 16 | 99 | -60.8% | -65.0% | 10.76 |
-| GPT-Neo-1.3B-0.020-12 | 13 | 34 | -23.7% | -34.5% | 10.21 |
-| GPT-Neo-1.3B-0.020-full | 13 | 34 | -38.0% | -53.4% | 10.55 |
-| Qwen3-8B-enron-0.025-full | 36 | 328 | -0.6% | -6.4% | 7.57 |
-| Qwen3-8B-enron-0.025-18 | 36 | 328 | +2.2% | +6.7% | 7.32 |
+![Privacy-Utility Trade-off for SEA](/public/sea_privacy/privacy_utility_sea.png)
 
-*SEA results for `GPT-Neo-1.3B` and `Qwen3-8B-enron` models. For GPT-Neo-1.3B, the base perplexity is 9.64 across all configurations. Base exposure values range from 106.19 to 106.72, and base MRR values range from 0.2218 to 0.2220. For Qwen3-8B-enron, the base perplexity is 6.68 across all configurations. Base exposure values range from 111.24 to 113.60, and base MRR values range from 0.2303 to 0.2390.*
+*SEA results for `GPT-Neo-1.3B` and `Qwen3-8B-enron` models. Marker shapes indicate layers edited (circle = 12 layers, square = full layers, triangle = 18 layers). Color indicates % perplexity increase. For GPT-Neo-1.3B, the base perplexity is 9.64 across all configurations. Base exposure values range from 106.19 to 106.72, and base MRR values range from 0.2218 to 0.2220. For Qwen3-8B-enron, the base perplexity is 6.68 across all configurations. Base exposure values range from 111.24 to 113.60, and base MRR values range from 0.2303 to 0.2390.*
 
 For GPT-Neo-1.3B, **SEA's effectiveness depends strongly on how many layers are edited**. Editing only the last 12 layers produces modest gains (6--30% exposure reduction) with small perplexity increases (~5--6%), while full-layer editing achieves much larger privacy gains (up to ~75% exposure and ~77% MRR reduction) at the cost of substantially higher perplexity increases (up to ~147%). *The gap between 12-layer and full-layer editing is large* (upwards of 74% for exposure reduction).
 
