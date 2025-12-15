@@ -161,19 +161,19 @@ Table above shows the performance of all three editing methods on GPT-Neo-1.3B w
 
 ### activation patching results
 
-<img src="/public/sea_privacy/privacy_utility_apneap.png" alt="Privacy-Utility Trade-off for Activation Patching" style="width: 60%;">
+<img src="/public/sea_privacy/privacy_utility_apneap.png" alt="Privacy-Utility Trade-off for Activation Patching" style="width: 60%; display: block; margin: 0 auto;">
 
 *Activation patching results across privacy neuron thresholds and alphas. Marker shapes indicate α values (circle = 2.00, square = 3.00). Color indicates % perplexity increase. Negative percentages indicate privacy improvement.*
 
 ### random noise steering results
 
-<img src="/public/sea_privacy/privacy_utility_random.png" alt="Privacy-Utility Trade-off for Random Noise Steering" style="width: 60%;">
+<img src="/public/sea_privacy/privacy_utility_random.png" alt="Privacy-Utility Trade-off for Random Noise Steering" style="width: 60%; display: block; margin: 0 auto;">
 
 *Random noise steering results across privacy neuron thresholds and noise levels. Marker shapes indicate standard deviation values (circle = 0.10, square = 0.50, triangle = 1.25, diamond = 2.00). Color indicates % perplexity increase. Negative percentages indicate privacy improvement. Baseline PPL ≈ 9.69. Two datapoints were excluded from visualization due to extreme perplexity values: GPT-Neo-1.3B-0.0075 with std=2.00 achieved -96.6% exposure reduction and -100.0% MRR reduction but with PPL=52501.80 (542,000% increase), and GPT-Neo-1.3B-0.01 with std=2.00 achieved -72.5% exposure reduction and -89.3% MRR reduction but with PPL=31.18 (222% increase).*
 
 ### spectral editing results
 
-<img src="/public/sea_privacy/privacy_utility_sea.png" alt="Privacy-Utility Trade-off for SEA" style="width: 60%;">
+<img src="/public/sea_privacy/privacy_utility_sea.png" alt="Privacy-Utility Trade-off for SEA" style="width: 60%; display: block; margin: 0 auto;">
 
 *SEA results for `GPT-Neo-1.3B` and `Qwen3-8B-enron` models. Marker shapes indicate layers edited (circle = 12 layers, square = full layers, triangle = 18 layers). Color indicates % perplexity increase. For GPT-Neo-1.3B, the base perplexity is 9.64 across all configurations. Base exposure values range from 106.19 to 106.72, and base MRR values range from 0.2218 to 0.2220. For Qwen3-8B-enron, the base perplexity is 6.68 across all configurations. Base exposure values range from 111.24 to 113.60, and base MRR values range from 0.2303 to 0.2390.*
 
