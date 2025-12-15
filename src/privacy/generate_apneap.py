@@ -59,15 +59,25 @@ for row in data:
 # Create figure
 fig, ax = plt.subplots(figsize=(12, 7))
 
-# Create colormap using provided color palette
-colors_list = [
-    '#7BA3D8', '#6B9BD1', '#5FA8C4', '#54A8B7', '#4FB3B3',
-    '#45B5A9', '#3DB8A8', '#35BA9F', '#2DBD9D', '#25BE93',
-    '#1DC292', '#15C489', '#0DC787', '#07C97F', '#00BC7C',
-    '#00B875', '#00B171',
-]
-n_bins = 256
-custom_cmap = mcolors.LinearSegmentedColormap.from_list('pastel_cool', colors_list, N=n_bins)
+# Smooth green -> blue -> purple gradient
+green_start = np.array([0, 177, 113])    # #00B171
+cyan_mid = np.array([79, 179, 179])      # #4FB3B3
+blue_mid = np.array([123, 163, 216])     # #7BA3D8
+purple_end = np.array([155, 89, 182])    # #9B59B6
+
+colors_list = []
+n_steps = 25
+for i in range(n_steps):
+    t = i / (n_steps - 1)
+    if t < 0.33:
+        color = green_start + (cyan_mid - green_start) * (t / 0.33)
+    elif t < 0.67:
+        color = cyan_mid + (blue_mid - cyan_mid) * ((t - 0.33) / 0.34)
+    else:
+        color = blue_mid + (purple_end - blue_mid) * ((t - 0.67) / 0.33)
+    colors_list.append('#{:02X}{:02X}{:02X}'.format(int(color[0]), int(color[1]), int(color[2])))
+
+custom_cmap = mcolors.LinearSegmentedColormap.from_list('pastel_cool', colors_list, N=256)
 
 # Normalize PPL % change for colormap
 ppl_min = min(ppl_pct_change)
@@ -97,16 +107,27 @@ for alpha_val in [2.00, 3.00]:
                         marker=marker, label=None)
     scatter_objects[alpha_val] = scatter
 
-# Label all models
+# Label all models with custom positioning for specific labels
+# Custom offsets: (dx, dy) in points, keyed by (label, alpha)
+custom_offsets = {
+    ('GPT-Neo-1.3B-0.0075', 3.00): (-7, -7),  # G-0.0075 alpha=3.00: bottom-left
+}
+
 for i in range(len(labels)):
     short_label = labels[i].replace('GPT-Neo-1.3B-', 'G-')
     # Alpha is encoded in marker shape, so don't include it in label
     
-    # Default offset (top-right)
-    dx, dy = (8, 8)
+    # Get custom offset if specified, otherwise use default (top-right)
+    key = (labels[i], alphas[i])
+    dx, dy = custom_offsets.get(key, (8, 8))
     
-    # Text alignment for top-right
-    ha, va = 'left', 'bottom'
+    # Determine text alignment based on offset direction
+    # For bottom-left (negative x, negative y): align text top-right (ha='right', va='top')
+    # For top-right (positive x, positive y, default): align text bottom-left (ha='left', va='bottom')
+    if dx < 0 and dy < 0:  # bottom-left
+        ha, va = 'right', 'top'
+    else:  # top-right (default)
+        ha, va = 'left', 'bottom'
     
     ax.annotate(short_label, (exposure_reduction[i], mrr_retained[i]), 
                 xytext=(dx, dy), textcoords='offset points',
@@ -143,7 +164,7 @@ ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
 plt.tight_layout()
 
 # Save the figure
-output_path = 'public/sea_privacy/activation_patching_scatter.png'
+output_path = 'public/sea_privacy/privacy_utility_apneap.png'
 plt.savefig(output_path, dpi=300, bbox_inches='tight')
 print(f"Graph saved to {output_path}")
 

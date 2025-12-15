@@ -159,18 +159,6 @@ We run experiments on a single NVIDIA A100 GPU with 40GB VRAM, using bfloat16 pr
 
 Table above shows the performance of all three editing methods on GPT-Neo-1.3B with 759 privacy neurons. APNEAP achieves 43.2% MRR suppression and 30.6% exposure reduction with 5.2% perplexity degradation, demonstrating a favorable privacy-utility tradeoff. Random noise steering performs comparably, achieving 42.9% MRR suppression and 43.6% exposure reduction (superior to APNEAP) with 7.9% perplexity degradation. *This suggests that identifying privacy neurons is more critical than the specific steering direction*. SEA achieves the strongest privacy protection (65.6% MRR suppression, 67.4% exposure reduction) but at substantial utility cost (37.5% perplexity increase), which may limit its practical applicability.
 
-### ablation study
-
-We conduct ablations across three axes to understand the sensitivity of our methods to hyperparameter choices:
-
-**Privacy Neuron Count.** By varying the selection threshold $\tau_{\mathrm{text}}$ from 0.0075 to 0.20, we obtain privacy neuron sets ranging from 2,303 neurons (3.1% of MLP dimensions) down to 34 neurons (0.05%). Results show that larger neuron sets generally achieve stronger privacy suppression but with greater utility cost, while smaller sets preserve perplexity but provide weaker protection.
-
-**Editing Strength.** For activation patching, we vary the steering coefficient $\alpha$. For random noise steering, we vary the standard deviation $\sigma$ from 0.1 to 2.0. Both show a consistent trade-off: stronger interventions yield greater exposure reduction at the cost of increased perplexity. The optimal operating point depends on the application's privacy-utility requirements.
-
-**Steering Method.** We compare directed steering (activation patching with computed steering vectors) against undirected perturbation (random Gaussian noise). While activation patching leverages task-specific information about privacy-leaking versus harmless activations, random noise provides a simpler baseline that requires no steering vector computation. *Our results suggest that random noise can achieve comparable privacy suppression at similar perplexity costs*, though directed steering may offer more predictable behavior.
-
-**Text threshold ablation.** Varying `text_threshold` reveals a clear privacy-utility trade-off: lower thresholds (more neurons) yield larger privacy improvements but higher perplexity. For example, 2303 neurons achieve ~75% exposure reduction but 147% perplexity increase, while 34 neurons achieve ~38% reduction with only ~9% perplexity increase.
-
 ### activation patching results
 
 ![Privacy-Utility Trade-off for Activation Patching](/public/sea_privacy/privacy_utility_apneap.png)
@@ -192,6 +180,22 @@ We conduct ablations across three axes to understand the sensitivity of our meth
 For GPT-Neo-1.3B, **SEA's effectiveness depends strongly on how many layers are edited**. Editing only the last 12 layers produces modest gains (6--30% exposure reduction) with small perplexity increases (~5--6%), while full-layer editing achieves much larger privacy gains (up to ~75% exposure and ~77% MRR reduction) at the cost of substantially higher perplexity increases (up to ~147%). *The gap between 12-layer and full-layer editing is large* (upwards of 74% for exposure reduction).
 
 On `Qwen3-8B-enron`, **SEA shows limited effectiveness**: the full-layer run achieves only modest improvements (0.6% exposure, 6.4% MRR reduction) compared to GPT-Neo's 30--75% reductions. This likely stems from *finetuning on Enron data, which embeds secrets more deeply in the model's representations*. The finetuning process appears to **concentrate memorization signals into sparse but highly-attributed neurons** (328 neurons vs. GPT-Neo's 759--2303), making the memorization *less linearly-separable* and reducing SEA's effectiveness.
+
+### ablation study
+
+We conduct ablations across three axes to understand the sensitivity of our methods to hyperparameter choices:
+
+**Privacy Neuron Count.** By varying the selection threshold $\tau_{\mathrm{text}}$ from 0.0075 to 0.20, we obtain privacy neuron sets ranging from 2,303 neurons (3.1% of MLP dimensions) down to 34 neurons (0.05%). Results show that larger neuron sets generally achieve stronger privacy suppression but with greater utility cost, while smaller sets preserve perplexity but provide weaker protection.
+
+**Editing Strength.** For activation patching, we vary the steering coefficient $\alpha$. For random noise steering, we vary the standard deviation $\sigma$ from 0.1 to 2.0. Both show a consistent trade-off: stronger interventions yield greater exposure reduction at the cost of increased perplexity. The optimal operating point depends on the application's privacy-utility requirements.
+
+**Steering Method.** We compare directed steering (activation patching with computed steering vectors) against undirected perturbation (random Gaussian noise). While activation patching leverages task-specific information about privacy-leaking versus harmless activations, random noise provides a simpler baseline that requires no steering vector computation. *Our results suggest that random noise can achieve comparable privacy suppression at similar perplexity costs*, though directed steering may offer more predictable behavior.
+
+**Text threshold ablation.** Varying `text_threshold` reveals a clear privacy-utility trade-off: lower thresholds (more neurons) yield larger privacy improvements but higher perplexity. For example, 2303 neurons achieve ~75% exposure reduction but 147% perplexity increase, while 34 neurons achieve ~38% reduction with only ~9% perplexity increase.
+
+![Privacy-Utility Trade-off by Text Threshold (GPT-Neo-1.3B)](/public/sea_privacy/threshold_comparison.png)
+
+*Comparison of APNEAP, Random Noise Steering, and SEA methods across different text thresholds. Each subplot shows results for a specific threshold, with marker shapes indicating method type (circle = APNEAP, square = Random, triangle = SEA). Point labels indicate hyperparameters (α for APNEAP, std for Random, n/layers for SEA). Color indicates % perplexity increase on a log scale. All methods show a consistent privacy-utility trade-off across thresholds.*
 
 ## conclusion
 
