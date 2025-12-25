@@ -1,0 +1,34 @@
+{
+  "name": "djdumpling-blog",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build && npm run generate-rss",
+    "start": "next start",
+    "lint": "next lint",
+    "postbuild": "next-sitemap",
+    "generate-rss": "tsx scripts/generate-rss.ts"
+  },
+  "dependencies": {
+    "date-fns": "^3.6.0",
+    "gray-matter": "^4.0.3",
+    "highlight.js": "^11.11.1",
+    "next": "^14.2.15",
+    "next-mdx-remote": "^5.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "rehype-highlight": "^7.0.2",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "next-sitemap": "^4.2.3",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  }
+}
