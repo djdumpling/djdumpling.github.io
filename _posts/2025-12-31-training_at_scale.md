@@ -27,6 +27,7 @@ Model families like DeepSeek, MiniMax, Kimi, OLMo, and SmolLM have vastly differ
 | Attention | X | X | X | X | GQA (4 groups)|
 | Embedding Sharing | X | X | X | X | tied|
 | Positional Embedding| X | X | X | X | RNoPE|
+| Z-Loss | X | X | X | X | No|
 
 ### attention
 
@@ -61,3 +62,29 @@ During pretraining, models are trained on shorter context lengths (similar ideas
 More recently, with the emphasis on long contexts, [NoPE](https://arxiv.org/abs/2305.19466) (no position embedding) and [RNoPE](https://arxiv.org/abs/2501.18795), a hybrid method, have emerged. NoPE uses only casual masking and attention patterns, so it doesn't bump into the issue of extrapolating beyond training lengths but shows weaker performance on short context reasoning and knowledge-based tasks. RNoPE alternates applying RoPE and NoPE on attention blocks, where RoPE handles local context and NoPE helps with longer-range information retrieval. Another idea is Partial RoPE, which applies RoPE/NoPE within the same layer. [TODO: consider adding partial ROPE with MLA]
 
 HF ran ablations using RoPE, RNoPE (removing positional encoding every 4th layer), and RNoPE with document masking. They found that all achieve similar performance on short-context tasks, so they adopt RNoPE + document masking because it provides the foundation for long-context handling.
+
+### attention for long contexts
+
+An alternative to adjusting positional encodings for long contexts is specifying the strength of which tokens can attend to one another. 
+- **Chunked Attention**: divides the sequence into fix-sized chunks where tokens can only attend within their chunk. [Llama 4](https://ai.meta.com/blog/llama-4-multimodal-intelligence/) paired with RNoPE (specifically the RoPE layers) which also reduces the KV cache size per layer, but it's performance on long context tasks would degrade.
+- **Sliding Window Attention (SWA)**: every token can see up to $p$ positions back, creating a sliding window that maintains local context. Gemma 3 combined SWA with full attention every other layer.
+- **Dual Chunk Attention (DCA)**: $K$ tokens are chunked into $M$ groups. Within each group (like chunked attention), tokens attend normally. Between successive chunks have their own local window to preserve locality, and more broadly, inter chunk attention allows queries to attend to previous chunks with a capped relative position capped. Qwen-2.5 used DCA to support context windows of up to 1 million tokens.
+
+[TODO: add image from HF of attention patterns]
+
+## pretraining
+
+### $z$-loss
+
+$z$-loss is an regularization term added to the standard cross entropy loss that keeps logits from drifting to large magnitudes. By adding $\mathcal{L}_{\text{z-loss}} = \lambda \cdot \log^2(Z) = \lambda \sum_{i=1}^V e^{z_i}$, representing the denominator in the softmax the loss now penalized based on $\log(Z)$ which represents the overall logit scale. 
+
+On their 1B model, HF found that adding $Z$-loss didn't impact training loss or downstream performance, so they chose not to include it due to training overhead.
+
+### removing weight decay from embeddings
+
+Despite being a regularization technique, weight decay being removed from embeddings can improve training stability. Weight decay causes embedding norm to decrease, but this can lead to larger gradients in earlier layers since the LayerNorm Jacobian has a $\frac1{\sigma}$ term (coming from normalization) which is inversely proportional to the input norm $\sigma$.
+
+HF tested this using a weight decay baseline, a no wieght decay baseline, and another combining all previous adopted changes and found no significant loss or eval results, so they included no weight decay.
+
+### qk norm
+
