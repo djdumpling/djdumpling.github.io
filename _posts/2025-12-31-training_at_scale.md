@@ -16,7 +16,7 @@ These notes have not been thoroughly reviewed. Any errors below are my own respo
     - There are a plethera of modifiable components (attention mechanisms and positional encodings to name a few), but follow the principle of **derisking**: "never change anything unless you've tested that it helps."
 3. [HF] **In evals, look for monotonicity** (score improvement), **low noise** (e.g. score resistance to random seeds), above-random performance (random-level peformance for extended time frames isn't useful), and ranking consistency (ranking of approaches should remain stable throughout training). 
 
-## architecture
+## architecture and set-up
 
 Model families like DeepSeek, MiniMax, Kimi, OLMo, and SmolLM have vastly different architectures (dense vs MoE), attention mechanisms (MHA vs MLA vs GQA), position encodings (RoPE, partial RoPE, NoPE), among many, many, others.
 
@@ -27,6 +27,7 @@ Model families like DeepSeek, MiniMax, Kimi, OLMo, and SmolLM have vastly differ
 | Positional Embedding| X | X | X | X | RNoPE|
 | Z-Loss | X | X | X | X | No|
 | Architecture | X | X | X | X | dense|
+| Tokenizer | X | X | X | X | Llama3|
 
 Between choosing architecture, HF suggests following a decision tree such that if one of these is true, then to choose a dense architecture:
 - memory-constrained (since MoEs must have all experts loaded)
@@ -119,8 +120,23 @@ HF tested this using a weight decay baseline, a no wieght decay baseline, and an
 
 Similar to $z$-loss, QK-norm helps prevent attention logits from becoming too large by applying LayerNorm to both the query and key vectors before computing attention. However, [the same paper which proposed RNoPE](https://arxiv.org/abs/2501.18795) found that it hurts long-context tasks because the normalization demphasizes relevant tokens and emphasizes irrelevant tokens by stripping the query-key dot product of its magnitude.
 
-### other considerations
+### other design considerations
 
 1. **Parameter initialization**: either normalization initation ($\mu=0$, $\sigma=0.02, 0.006$) with clipping (often with $\pm 2-3 \sigma$) or a scheme like $\mu\text{P}$ ([maximal update parametrization](https://arxiv.org/abs/2011.14522)) which dictates how weights and learning rates should scale with width so that training dynamics stay comparable.
 2. **Activation Function**: SwiGLU is what most modern LLMs use, not ReLU or GeLU. Some exceptions are Gemma2 using GeGLU and nvidia using $\text{relu}^2$. 
 3. **Width vs Height**: deeper models tend to outperform outperform equally sized wider ones on language modeling and compositional tasks. In smaller models, this is more pronounced, but larger models make use wider models for faster inference due modern architectures supporting better parallelism. 
+
+## tokenizer
+
+There are a few considerations that typically guide tokenizer design:
+1. **domains**: in domains like math and code, digits and other special characters require careful treatment. Most tokenizers do single-digit splitting, which helps with arithmetic patterns more effectively and prevents memorization of numbers. Some tokenizers like [Llama3](https://arxiv.org/abs/2407.21783) further encode numbers 1 to 999 as unique tokens.
+2. **supported languages**: a tokenizer trained on english text would be extremely inefficient if it encountered another language, say mandarin or farsi. 
+3. **target data mixture**: when training a tokenizer from scratch, we should train on samples that mirror our final training mixture.
+
+Larger vocabularies can compress text more efficiently, but they come at the cost of a larger embedding matrix, which as mentioned in the embeddings section, can take up a sizable portion of the parameter count. For english-only models, 50k is often enough, while multilingual models need over 100k. There is an optimal size that exists since [compression gains from larger vocabularies decrease exponentially](https://arxiv.org/abs/2402.01035).
+
+Large models benefit for large vocabularies since the extra compression saves more on the forward pass (project to QKV, attention, and MLP) than the additional embedding tokens during softmax. For memory, larger vocab means fewer tokens, so a smaller KV cache.
+
+**BPE** ([byte-pair encoding](https://arxiv.org/abs/1508.07909)) still remains the de facto choice. Starting with tiny units (e.g. characters or bytes), the BPE algorithm repeatedly merge the most common adjacent pair into a new token. To evaluate a tokenizer's performance, **fertility** is a common metric, measuring the average number of tokens needed to encode a word (alternatively, characters-to-tokens ratio or bytes-to-tokens ratio, but these have limitations due to word length variability and byte representations). And is **proportion of continued words**, describing what percentage of words get split into multiple pieces. For both, smaller metrics indicate more efficient tokenizers.
+
+There are many strong existing tokenizers, like [GPT4's tokenizer](https://arxiv.org/abs/2303.08774) and Gemma3's tokenizer. Often, using existing tokenizers is enough; only when we want to train for low-resource languages or have a different data mixture should we continue training our own tokenizer.
