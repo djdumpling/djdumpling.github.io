@@ -15,6 +15,7 @@ These notes have not been thoroughly reviewed. Any errors below are my own respo
 2. [HF] **Choose an established baseline with good architecture and training setup design**. These take years of iteration, and people have discovered common failure modes and instabilities.
     - There are a plethora of modifiable components (attention mechanisms and positional encodings to name a few), but follow the principle of **derisking**: "never change anything unless you've tested that it helps."
 3. [HF] **In evals, look for monotonicity** (score improvement), **low noise** (e.g. score resistance to random seeds), above-random performance (random-level performance for extended time frames isn't useful), and ranking consistency (ranking of approaches should remain stable throughout training). 
+4. [HF] **Balance exploration and execution.** For methods, choose flexibility and stability over peak performance, set a deadline for exploration.
 
 ## architecture and set-up
 
@@ -171,8 +172,30 @@ O_t &\leftarrow \text{NewtonSchulz5}(B_t) \\
 $$
 where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) describes the algebra of it in more detail, but we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because $f \circ f \circ \cdots f(x)$ converges to the sign function. This has the effect of reducing axis-aligned bias and encouraging exploration fo directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
 
-### learning rates
+### learning rates 
 
 Learning rates have their own life cycle: they warmup (typically 1%-5% of training steps for short trainings, but large labs fix the warmup steps) from zero to avoid chaos, then anneal after settling into a good minimum. [Cosine annealing](https://arxiv.org/abs/1608.03983) was the go-to scheduler, but it's also inflexible due to the cosine period needing to match the total training duration. Alternatives include [warmup-stable-decay (WSD)](https://arxiv.org/abs/2404.06395) and [multi-step](https://arxiv.org/abs/2401.02954); in the last x% of tokens, the former linearly decays the learning rate whereas multi-step does discrete drops. [TODO: include image]. for WSD, typically 10-20% is allocated for the decay phase, matching cosine annealing; in multi-step, 80/10/10 also matches cosine annealing while 70/15/15 and 60/20/20 can outperform it. Deepseek-v3 used cosine annealing between the decay drops and added a constant phase before the final sharp step.
 
 HF's ablations (on their 1B model) showed that WSD tended to underperform cosine annealing before WSD's decay began, but once it entered its decay phase, WSD showed nearly linear improvement in both loss and eval metrics, which allowed it to catch up to cosine annealing by the end. After running further ablations on the learning rate, the HF team settled on 2e-4; increasing led to potential increased risk of instability during long training runs.
+
+WSD schedule especially helps with ablations sicne it does not research restarting the same run for different token counts, since we can retrain only the end portions (learning rate decay) while maintaining the front portion.
+
+### batch size
+
+There is a [critical batch size](https://arxiv.org/abs/1812.06162): too small and we may be underutilizing compute, but too large we the model needs more tokens to reach the same loss. Still, larger batch sizes given more efficient gradient estimations, and are preferred. 
+
+A useful proxy is that for optimizers like AdamW or Muon, if the batch size squares up by $k$ then the learning rate should scale up by $\sqrt{k}$. This is because the covariance stricts by a factor of $k$, and based on the SGD parameter update $\Delta w = -\eta g_B$ , so $\text{Var}(\Delta w) \sim \eta^2 \frac{\Sigma}{B}$  where $B$ is the original batch size, so $\eta \sim \sqrt{k}$. 
+
+As training progresses, the critical batch size grows. Initially, since the model is making large updates, $||g||^2$ is large so the model should have a small critical batch size. After the model stabilizes, larger batches become more effective. This motivates the idea of *batch size warmup*. 
+
+### scaling laws
+
+Scaling laws (e.g. [Chincilla scaling laws](https://arxiv.org/abs/2203.15556)) provide a useful proxy for determining how aggressively/conservatively to update hyperparameters as model size scales. 
+
+First, $C \approx 6 \cdot N \cdot D$ where $C$ is the compute budget measured in FLOPs, N is the number of parameters, and $D$ is the number of training tokens. The 6 is dervied from empirical estimates for the number of FLOPs per parameter.
+
+[TODO: add image of Deepseek]
+
+Initially, [scaling laws](https://arxiv.org/abs/2001.08361) indicates that language model size was the main constraint, leading to a GPT-3 model with 175B parameters but only trained on 300B tokens. A [re-derivation](https://arxiv.org/abs/2203.15556) found that training duration could improve gains more than size; they found that compute-optimal training of GPT-3 should have consumed 3.7T tokens.
+
+However, scaling laws are almost always never religiously followed. Recently, labs have been "overtraining" models beyond the training durations uggested by scaling laws (e.g. Qwen 3 being trained on 36T tokens).  Moreover, "compute-optimal" scaling laws don't account for larger models being more expensive after training due to inference. To that tend, HF decided to train of 11T tokens on a 3B model.
