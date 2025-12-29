@@ -200,7 +200,7 @@ Initially, [scaling laws](https://arxiv.org/abs/2001.08361) indicates that langu
 
 However, scaling laws are almost always never religiously followed. Recently, labs have been "overtraining" models beyond the training durations uggested by scaling laws (e.g. Qwen 3 being trained on 36T tokens).  Moreover, "compute-optimal" scaling laws don't account for larger models being more expensive after training due to inference. To that tend, HF decided to train of 11T tokens on a 3B model.
 
-# data curation
+# data curation and pre/mid training
 
 Even with the perfect architecture, a model's performance is still heavily dependent on its training data; no amount of compute or optimization can compensate for training on the wrong content. To this end, it's about assembling the right **data mixture**, balancing training objectives and tuning data proportions. This is particularly difficult since across competiting objectives, for a fixed compute budget, increasing one proportion necessarily decreases another, hurting performance.
 
@@ -228,7 +228,15 @@ HuggingFace's goal was to build a multi-lingual model that also excels on math a
 - **Code data**: primarily extracted from [The Stack v2 and StarCoder2](https://arxiv.org/abs/2402.19173), it includes 16 languages, Github PRs, Jupyter/Kaggle notebooks, Github issues, and StackExchange threads. Despite research showing that code improves LM performance beyond coding, they did not observe this effect (rather a degradation on English benchmarks) using the recommended code mixure. They delay adding their eductionally filtered subset, Stack-Edu, following the principle of delaying the best data until the end.
 - **Math data**: using FineMath3+, InfiWebMath3+, [MegaMath](https://arxiv.org/abs/2504.02807), and instruction/reasoning datasets like [OpenMathInstruct](https://arxiv.org/abs/2402.10176) and [OpenMathReasoning](https://arxiv.org/abs/2504.16891).
 
-For new stages (using a checkoint at around 7T out of the total 11T tokens), they use a 40/60 split between the baseline mixture and the new dataset. 
+For new stages (using a checkoint at around 7T out of the total 11T tokens), they use a 40/60 split between the baseline mixture and the new dataset. SmolLM3 has three stages: 8T tokens @ 4k context for base training, 2T tokens @ 4k context for high-quality injection, and 1.1T tokens @4k context a reasoning/Q&A stage.
+
+## mid-training
+
+Some recipes include an additional  **long context stage**; for example, [Qwen3](https://arxiv.org/abs/2505.09388) first trained on 30T tokens at 4k context, then a reasoning stage with 5T higher-quality tokens mainly on STEM and coding, and finally a long context stage at 32k context length.
+
+SmolLM3 also does this, but instead of scaling from 4k to 128k directly, the sequentially scale from 4k to 32k to 64k to 128k, which allows the model to adapt at each length before pushing the context length further. Upsamplineg long context documents like web articles or books [improve long context](https://arxiv.org/abs/2410.02660), but Hugging Face didn't observe improvement; they hypothesize that because their baseline mixture already includes long documents using RNoPE.
+
+To go from 4k to 32k and later to 64k, they use **RoPE ABF** and increase the base frequency to 2M and 5M, respectively. Base frequencies like 10M further improved slightly on [RULER](https://arxiv.org/abs/2404.06654), long context benchmark, but it hurt short context tasks like GSM8k, so they were disregarded. To reach 128k, they found that using **YARN** from the 64k checkpoint (instead of using a four-fold increase from 32k) produced better performance, which confirms the hypothesis that training closer to the desired inference length benefits performance.
 
 # the training marathon
 
@@ -244,7 +252,7 @@ HF observed a ~40% drop in throughout (14k to 8k tokens/sec/GPU) after a few hou
 
 The first fix can in the form of swapping the storage method by reserving a spare node with the dataset preloaded and copying using `fpsync` (`s5cmd` took double the time). This fixed the issue of a node dying and the replacement GPU having no data since by swapping it with the spare node, training could continue. So, the new spare, not to be wasted, could run evals or dev jobs.
 
-Testing again, they found smaller by still prominent drops in throughput. After experimenting with individual nodes that yeilded the same result, they focused on the change in training steps and found that smaller step counts resulted in smaller throughput drops. The`nanotron` dataloader they were using was growing the lookup table making the training step to the next chunk of tokens to read instead of keeping it bounded or precomputed. Stored in global memory, the growing table causes allocation failures and page faults/worse cache locality. So, they switched to `Tokenizedbytes` dataloader, solving the throughout issue
+Testing again, they found smaller by still prominent drops in throughput. After experimenting with individual nodes that yeilded the same result, they focused on the change in training steps and found that smaller step counts resulted in smaller throughput drops. The`nanotron` dataloader they were using was growing the lookup table making the training step to the next chunk of tokens to read instead of keeping it bounded or precomputed. Stored in global memory, the growing table causes allocation failures and page faults/worse cache locality. So, they switched to `Tokenizedbytes` dataloader, solving the throughout issue.
 
 ### noisy loss
 
@@ -256,5 +264,8 @@ After two days and 1T tokens, evals showed that with a similar recipe, SmolLM2 (
 
 Further, the two TP ranks were initialised with the same random seed instead of different seeds, which causes similar activations/gradients, a loss of diversity of features, and lower convergence.
 
-## staying on course
+### the usual suspects
 
+There are a few common culprits for training instabilities: high learning rate, bad data, data-parameter state interactions ([spikes can come from specific combinations of data batches and model parameter states](https://arxiv.org/abs/2204.02311)), poor initialisation ([OLMo2](https://arxiv.org/abs/2501.00656) revealed that $\mathcal{N}(0, 0.02)$ can improve stability upon scaled initialisation), and precision (eww, not fp16).
+
+Besides aformentioned ideas like **z-loss** or **QKNorm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tighening gradient clipping**.
