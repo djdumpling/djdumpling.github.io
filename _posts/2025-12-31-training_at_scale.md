@@ -5,9 +5,9 @@ date: 2025-12-31
 
 How do labs train a multi-billion parameter model? We look towards Hugging Face's SmolLM3, Allen Institute's Olmo 3, Prime Intellect's Intellect 3, and OpenAI's GPT-OSS-120B. This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models and is structured in more of a "notes" style.
 
-These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data). Notes from other reports have been supplemented throughout. Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
+These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to it's extensiveness, and later supplemented with notes from other reports. Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
 
-# general practices
+## (extremely broad) general practices
 
 1. [HF] "**Learn to identify what's worth testing, not just how to run tests.** Perfect ablations on irrelevant choices waste as much compute as sloppy ablations on important ones." 
     - Ablations need to be **fast** (faster iteration $\rightarrow$ more hypotheses tested) and **reliable** (need strong discriminative power because otherwise, it may be noise)
@@ -230,3 +230,20 @@ HuggingFace's goal was to build a multi-lingual model that also excels on math a
 
 For new stages (using a checkoint at around 7T out of the total 11T tokens), they use a 40/60 split between the baseline mixture and the new dataset. 
 
+# the training marathon
+
+Before the main training run starts, ensure the infrastructure is ready. This includes **Slurm reversations on clusters**, **stress-testing GPUs** ([GPU Fryer](https://github.com/huggingface/gpu-fryer) or [DCGM](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/dcgm-diagnostics.html)), and **avoid storage bloat** by upiloading checkpoints to third parties and deleting local copies after saving the next. To this end, **checkpoint and auto-resume systems** are important.
+
+**Evals** are also deceptively time-confusing (Allan Institute spent roughly 20% on compute on evals), so ensuring automation and logging (not just evaluation scores, but also throughput, loss, gradient nomr, and node health) is crucial. 
+
+## resolving mysteries
+
+### vanishing throughout 
+
+HF observed a ~40% drop in throughout (14k to 8k tokens/sec/GPU) after a few hours of starting the main run. The issue came from data storage; their cluster uses a network-attached storage with a "keep-hot" caching model that stores frequently accessed files and evits "cold" files to third-party S3. With 24TB of training data, the storage was pushed to its limit, so it evicted dataset shards mid-training. This meant fetching them back and creating stalls that slowed throughout. 
+
+The first fix can in the form of swapping the storage method by reserving a spare node with the dataset preloaded and copying using `fpsync` (`s5cmd` took double the time). This fixed the issue of a node dying and the replacement GPU having no data since by swapping it with the spare node, training could continue. So, the new spare, not to be wasted, could run evals or dev jobs.
+
+Testing again, they found smaller by still prominent drops in throughput. After experimenting with individual nodes that yeilded the same result, they focused on the change in training steps and found that smaller step counts resulted in smaller throughput drops. The`nanotron` dataloader they were using was growing the lookup table making the training step to the next chunk of tokens to read instead of keeping it bounded or precomputed. Stored in global memory, the growing table causes allocation failures and page faults/worse cache locality. So, they switched to `Tokenizedbytes` dataloader, solving the throughout issue
+
+### noisy loss
