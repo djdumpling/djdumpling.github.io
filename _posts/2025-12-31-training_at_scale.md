@@ -15,6 +15,7 @@ These notes are largely structured off of Hugging Face's [SmolLM3 report](https:
 2. [HF] **Choose an established baseline with good architecture and training setup design**. These take years of iteration, and people have discovered common failure modes and instabilities.
     - There are a plethora of modifiable components (attention mechanisms and positional encodings to name a few), but follow the principle of **derisking**: "never change anything unless you've tested that it helps."
 3. [HF] **In evals, look for monotonicity** (score improvement), **low noise** (e.g. score resistance to random seeds), above-random performance (random-level performance for extended time frames isn't useful), and ranking consistency (ranking of approaches should remain stable throughout training). 
+    - Prioritize evals! Between pre-training and post-training, core evals should be preserved, and their implementation should be finished long before the base model is finished training. 
 4. [HF] **Balance exploration and execution.** For methods, choose flexibility and stability over peak performance, set a deadline for exploration.
 
 # architecture and set-up
@@ -269,3 +270,21 @@ Further, the two TP ranks were initialised with the same random seed instead of 
 There are a few common culprits for training instabilities: high learning rate, bad data, data-parameter state interactions ([spikes can come from specific combinations of data batches and model parameter states](https://arxiv.org/abs/2204.02311)), poor initialisation ([OLMo2](https://arxiv.org/abs/2501.00656) revealed that $\mathcal{N}(0, 0.02)$ can improve stability upon scaled initialisation), and precision (eww, not fp16).
 
 Besides aformentioned ideas like **z-loss** or **QKNorm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tighening gradient clipping**.
+
+# post-training
+
+## evals
+
+Given today's standards of LLMs as coding agents and assistants that can reason, that are four broad class of evals that researchers care about:
+1. **Knowledge**: for small models, GPQA Diamond tests graduate-level multi-choice questions and gives better signa than other evals like MMLU. Another good test for factuality is SimpleQA, although smaller models are much less performant due to limited knowledge.
+2. **Math**: AIME is still the leading benchmark, with others like MATH-500 providing a useful sanity check for small models.
+3. **Code**: LiveCodeBench tracks both coding competency via competitive programming while SWE-bench Verified is a more sophisticated alternative but much harder for smaller models.
+4. **Multilinguality**: there aren't many options except for Global MMLU to target the languages that models were pretrained on/should perform well in. 
+
+These evals test the following:
+1. **Long context**: RULER, HELMET, and more recently-released MRCR and GraphWalks benchmark long-context understanding.
+2. **Instruction following**: IFEval uses verifiers against verifiable instructions, and IFBench extends upon it with a more diverse set of constraints. For multi-turn, Multi-IF and MultiChallenge are preferred.
+3. **Alignment**: LMArena with human annotators and public leaderboards is the most popular. But due to the cost of these evaluations, LLM-as-judge evals have emerged, including AlpacaEval and MixEval.
+4. **Tool calling**: TAU-Bench tests a model's ability to use tools to resolve user problems in customer service settings, including retail and airline.
+
+To prevent overfitting, evals that encapsulate robustness or adapatability, like GSMPlus which perturbs problems from GSM8k, are also included. Another way is using **interval evals** or **vibe evaluations/arenas**, such as manually probing the model's behavior. Other tips include using small subsets to accelerate evals (especially if there's correlation with a larger eval), fixing the LLM-as-judge model (if the eval requires it), treat anything used during ablations as validation, use `avg@k` accuracy, and try not to (don't) benchmax! 
