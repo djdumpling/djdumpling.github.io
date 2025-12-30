@@ -5,7 +5,7 @@ date: 2025-12-31
 
 How do labs train a multi-billion parameter model? We look towards Hugging Face's SmolLM3, Allen Institute's Olmo 3, Prime Intellect's Intellect 3, and OpenAI's GPT-OSS-120B. This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models and is structured in more of a "notes" style.
 
-These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to it's extensiveness, and it is supplemented with notes from other reports. Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
+These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is supplemented with notes from other reports. Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
 
 ## (extremely broad) general practices
 
@@ -152,7 +152,7 @@ Choosing optimizers and tuning hyperparameters is notoriously time-consuming. Wh
 
 ## adamW
 
-Despite being invented over 10 years agao, AdamW still stands the test of time. Adam (adaptive momentum estimation) updates weights individually based on an exponential weighted average of gradients $g_t$ and an exponential weighted average of squared gradients $g_t^2$, along with weight decay (the "W"): 
+Despite being invented over 10 years ago, AdamW still stands the test of time. Adam (adaptive momentum estimation) updates weights individually based on an exponential weighted average of gradients $g_t$ and an exponential weighted average of squared gradients $g_t^2$, along with weight decay (the "W"): 
 $$\begin{align*}
 \theta &\leftarrow (1-\alpha \lambda)\theta - \alpha \frac{\hat{m}_t}{\sqrt{v_t}+\epsilon} \\
 \hat{m}_t &= \frac{m_t}{1-\beta_1^t}, \quad m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t \\
@@ -171,7 +171,7 @@ O_t &\leftarrow \text{NewtonSchulz5}(B_t) \\
 \theta_t &\leftarrow \theta_{t-1} - \eta O_t
 \end{align*}
 $$
-where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) describes the algebra of it in more detail, but we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because $f \circ f \circ \cdots f(x)$ converges to the sign function. This has the effect of reducing axis-aligned bias and encouraging exploration fo directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
+where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) describes the algebra of it in more detail, but we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because $f \circ f \circ \cdots f(x)$ converges to the sign function. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
 
 ## learning rates 
 
@@ -179,35 +179,35 @@ Learning rates have their own life cycle: they warmup (typically 1%-5% of traini
 
 HF's ablations (on their 1B model) showed that WSD tended to underperform cosine annealing before WSD's decay began, but once it entered its decay phase, WSD showed nearly linear improvement in both loss and eval metrics, which allowed it to catch up to cosine annealing by the end. After running further ablations on the learning rate, the HF team settled on 2e-4; increasing led to potential increased risk of instability during long training runs.
 
-WSD schedule especially helps with ablations sicne it does not research restarting the same run for different token counts, since we can retrain only the end portions (learning rate decay) while maintaining the front portion.
+WSD schedule especially helps with ablations since it does not require restarting the same run for different token counts, since we can retrain only the end portions (learning rate decay) while maintaining the front portion.
 
 ## batch size
 
-There is a [critical batch size](https://arxiv.org/abs/1812.06162): too small and we may be underutilizing compute, but too large we the model needs more tokens to reach the same loss. Still, larger batch sizes given more efficient gradient estimations, and are preferred. 
+There is a [critical batch size](https://arxiv.org/abs/1812.06162): too small and we may be underutilizing compute, but too large and the model needs more tokens to reach the same loss. Still, larger batch sizes given more efficient gradient estimations, and are preferred. 
 
-A useful proxy is that for optimizers like AdamW or Muon, if the batch size squares up by $k$ then the learning rate should scale up by $\sqrt{k}$. This is because the covariance stricts by a factor of $k$, and based on the SGD parameter update $\Delta w = -\eta g_B$ , so $\text{Var}(\Delta w) \sim \eta^2 \frac{\Sigma}{B}$  where $B$ is the original batch size, so $\eta \sim \sqrt{k}$. 
+A useful proxy is that for optimizers like AdamW or Muon, if the batch size squares up by $k$ then the learning rate should scale up by $\sqrt{k}$. This is because the covariance shrinks by a factor of $k$, and based on the SGD parameter update $\Delta w = -\eta g_B$ , so $\text{Var}(\Delta w) \sim \eta^2 \frac{\Sigma}{B}$  where $B$ is the original batch size, so $\eta \sim \sqrt{k}$. 
 
 As training progresses, the critical batch size grows. Initially, since the model is making large updates, $||g||^2$ is large so the model should have a small critical batch size. After the model stabilizes, larger batches become more effective. This motivates the idea of *batch size warmup*. 
 
 ## scaling laws
 
-Scaling laws (e.g. [Chincilla scaling laws](https://arxiv.org/abs/2203.15556)) provide a useful proxy for determining how aggressively/conservatively to update hyperparameters as model size scales. 
+Scaling laws (e.g. [Chinchilla scaling laws](https://arxiv.org/abs/2203.15556)) provide a useful proxy for determining how aggressively/conservatively to update hyperparameters as model size scales. 
 
-First, $C \approx 6 \cdot N \cdot D$ where $C$ is the compute budget measured in FLOPs, N is the number of parameters, and $D$ is the number of training tokens. The 6 is dervied from empirical estimates for the number of FLOPs per parameter.
+First, $C \approx 6 \cdot N \cdot D$ where $C$ is the compute budget measured in FLOPs, N is the number of parameters, and $D$ is the number of training tokens. The 6 is derived from empirical estimates for the number of FLOPs per parameter.
 
 [TODO: add image of Deepseek]
 
 Initially, [scaling laws](https://arxiv.org/abs/2001.08361) indicates that language model size was the main constraint, leading to a GPT-3 model with 175B parameters but only trained on 300B tokens. A [re-derivation](https://arxiv.org/abs/2203.15556) found that training duration could improve gains more than size; they found that compute-optimal training of GPT-3 should have consumed 3.7T tokens.
 
-However, scaling laws are almost always never religiously followed. Recently, labs have been "overtraining" models beyond the training durations uggested by scaling laws (e.g. Qwen 3 being trained on 36T tokens).  Moreover, "compute-optimal" scaling laws don't account for larger models being more expensive after training due to inference. To that tend, HF decided to train of 11T tokens on a 3B model.
+However, scaling laws are almost always never religiously followed. Recently, labs have been "overtraining" models beyond the training durations suggested by scaling laws (e.g. Qwen 3 being trained on 36T tokens).  Moreover, "compute-optimal" scaling laws don't account for larger models being more expensive after training due to inference. To that end, HF decided to train of 11T tokens on a 3B model.
 
 # data curation and pre/mid training
 
-Even with the perfect architecture, a model's performance is still heavily dependent on its training data; no amount of compute or optimization can compensate for training on the wrong content. To this end, it's about assembling the right **data mixture**, balancing training objectives and tuning data proportions. This is particularly difficult since across competiting objectives, for a fixed compute budget, increasing one proportion necessarily decreases another, hurting performance.
+Even with the perfect architecture, a model's performance is still heavily dependent on its training data; no amount of compute or optimization can compensate for training on the wrong content. To this end, it's about assembling the right **data mixture**, balancing training objectives and tuning data proportions. This is particularly difficult since across competing objectives, for a fixed compute budget, increasing one proportion necessarily decreases another, hurting performance.
 
-There already exist large corpa of pre-training datasets like [FineWeb2](https://arxiv.org/abs/2506.20920) and [The Pile](https://pile.eleuther.ai/). However, there are still a plethera of information gaps, so recent models additionally rely on specialized pre-trainind datasets for domains like math and coding. 
+There already exist large corpora of pre-training datasets like [FineWeb2](https://arxiv.org/abs/2506.20920) and [The Pile](https://pile.eleuther.ai/). However, there are still a plethora of information gaps, so recent models additionally rely on specialized pretraining datasets for domains like math and coding. 
 
-One consideration in **data quality**. Of course, training of the highest quality data possible is preferrable. But for a training budget of $X$ tokens, because high quality data is limited, only filtering for it would lead to repeated data, which [can be harmful](https://arxiv.org/abs/2305.16264). So, an ideal mixture includes both higher and lower quality data.
+One consideration in **data quality**. Of course, training of the highest quality data possible is preferable. But for a training budget of $X$ tokens, because high quality data is limited, only filtering for it would lead to repeated data, which [can be harmful](https://arxiv.org/abs/2305.16264). So, an ideal mixture includes both higher and lower quality data.
 
 ## multi-stage training
 
@@ -215,7 +215,7 @@ One consideration in **data quality**. Of course, training of the highest qualit
 
 ## ablation 
 
-While architectural ablations are on with smaller models (e.g. on 1B models to train for 3B models), data mixtures is done at scale because Larger models have much larger capacities to understand a variety of domains. Moreover, **annealing ablations** are done on checkpoints of the main run (like 7T out of 11T tokens) to determine what datasets to introduce when. 
+While architectural ablations are done on smaller models (e.g. on 1B models to train for 3B models), data mixtures is done at scale because larger models have much larger capacities to understand a variety of domains. Moreover, **annealing ablations** are done on checkpoints of the main run (like 7T out of 11T tokens) to determine what datasets to introduce when. 
 
 To determine optimal data proportions, recent models often use a validation loss or a holdout loss to minimize based on evaluation objectives and data domains. However, some of these methods tend to converge toward distributions that mirror the dataset size distribution, and they don't outperform careful manual ablations.
 
@@ -224,40 +224,40 @@ To determine optimal data proportions, recent models often use a validation loss
 ### hugging face
 HuggingFace's goal was to build a multi-lingual model that also excels on math and coding. In stage 1 of their multi-stage training, they use a 75/12/10/3 split among english web data, multilingual web data, code data, and math data.
     
-- **English web data**: they ablate on a mixture of FineWeb-Edu (educational and STEm benchmarks) and DCLM (common sense reasoning), two strong open ENlgish web datasets at the time of training, finding that a 60/40 or a 50/50 split was best. Later, they add in other datasets including [Pes2o](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/pes2o), [Wikipedia & Wikibooks](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/wiki), and [StackExchange](https://huggingface.co/datasets/HuggingFaceTB/stackexchange_2025_md). 
-- **Multilingual web data**: five European languages were chosen, with data from FineWeb2-HQ. Smaller portions of other languages, like Chinese or Arabic, were chosen to allow others to do continual pretraining of SmolLM3. Ultimately, they foudn that 12% multilingua lcontent in the web mix was best.
-- **Code data**: primarily extracted from [The Stack v2 and StarCoder2](https://arxiv.org/abs/2402.19173), it includes 16 languages, Github PRs, Jupyter/Kaggle notebooks, Github issues, and StackExchange threads. Despite research showing that code improves LM performance beyond coding, they did not observe this effect (rather a degradation on English benchmarks) using the recommended code mixure. They delay adding their eductionally filtered subset, Stack-Edu, following the principle of delaying the best data until the end.
+- **English web data**: they ablate on a mixture of FineWeb-Edu (educational and STEM benchmarks) and DCLM (common sense reasoning), two strong open English web datasets at the time of training, finding that a 60/40 or a 50/50 split was best. Later, they add in other datasets including [Pes2o](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/pes2o), [Wikipedia & Wikibooks](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/wiki), and [StackExchange](https://huggingface.co/datasets/HuggingFaceTB/stackexchange_2025_md). 
+- **Multilingual web data**: five European languages were chosen, with data from FineWeb2-HQ. Smaller portions of other languages, like Chinese or Arabic, were chosen to allow others to do continual pretraining of SmolLM3. Ultimately, they found that 12% multilingual content in the web mix was best.
+- **Code data**: primarily extracted from [The Stack v2 and StarCoder2](https://arxiv.org/abs/2402.19173), it includes 16 languages, Github PRs, Jupyter/Kaggle notebooks, Github issues, and StackExchange threads. Despite research showing that code improves LM performance beyond coding, they did not observe this effect (rather a degradation on English benchmarks) using the recommended code mixture. They delay adding their educationally filtered subset, Stack-Edu, following the principle of delaying the best data until the end.
 - **Math data**: using FineMath3+, InfiWebMath3+, [MegaMath](https://arxiv.org/abs/2504.02807), and instruction/reasoning datasets like [OpenMathInstruct](https://arxiv.org/abs/2402.10176) and [OpenMathReasoning](https://arxiv.org/abs/2504.16891).
 
-For new stages (using a checkoint at around 7T out of the total 11T tokens), they use a 40/60 split between the baseline mixture and the new dataset. SmolLM3 has three stages: 8T tokens @ 4k context for base training, 2T tokens @ 4k context for high-quality injection, and 1.1T tokens @4k context a reasoning/Q&A stage.
+For new stages (using a checkpoint at around 7T out of the total 11T tokens), they use a 40/60 split between the baseline mixture and the new dataset. SmolLM3 has three stages: 8T tokens @ 4k context for base training, 2T tokens @ 4k context for high-quality injection, and 1.1T tokens @4k context a reasoning/Q&A stage.
 
 ## mid-training
 
 Some recipes include an additional  **long context stage**; for example, [Qwen3](https://arxiv.org/abs/2505.09388) first trained on 30T tokens at 4k context, then a reasoning stage with 5T higher-quality tokens mainly on STEM and coding, and finally a long context stage at 32k context length.
 
-SmolLM3 also does this, but instead of scaling from 4k to 128k directly, the sequentially scale from 4k to 32k to 64k to 128k, which allows the model to adapt at each length before pushing the context length further. Upsamplineg long context documents like web articles or books [improve long context](https://arxiv.org/abs/2410.02660), but Hugging Face didn't observe improvement; they hypothesize that because their baseline mixture already includes long documents using RNoPE.
+SmolLM3 also does this, but instead of scaling from 4k to 128k directly, they sequentially scale from 4k to 32k to 64k to 128k, which allows the model to adapt at each length before pushing the context length further. Upsampling long context documents like web articles or books [improve long context](https://arxiv.org/abs/2410.02660), but Hugging Face didn't observe improvement; they hypothesize that because their baseline mixture already includes long documents using RNoPE.
 
 To go from 4k to 32k and later to 64k, they use **RoPE ABF** and increase the base frequency to 2M and 5M, respectively. Base frequencies like 10M further improved slightly on [RULER](https://arxiv.org/abs/2404.06654), long context benchmark, but it hurt short context tasks like GSM8k, so they were disregarded. To reach 128k, they found that using **YARN** from the 64k checkpoint (instead of using a four-fold increase from 32k) produced better performance, which confirms the hypothesis that training closer to the desired inference length benefits performance.
 
 # the training marathon
 
-Before the main training run starts, ensure the infrastructure is ready. This includes **Slurm reversations on clusters**, **stress-testing GPUs** ([GPU Fryer](https://github.com/huggingface/gpu-fryer) or [DCGM](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/dcgm-diagnostics.html)), and **avoid storage bloat** by upiloading checkpoints to third parties and deleting local copies after saving the next. To this end, **checkpoint and auto-resume systems** are important.
+Before the main training run starts, ensure the infrastructure is ready. This includes **Slurm reservations on clusters**, **stress-testing GPUs** ([GPU Fryer](https://github.com/huggingface/gpu-fryer) or [DCGM](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/dcgm-diagnostics.html)), and **avoid storage bloat** by uploading checkpoints to third parties and deleting local copies after saving the next. To this end, **checkpoint and auto-resume systems** are important.
 
-**Evals** are also deceptively time-confusing (Allan Institute spent roughly 20% on compute on evals), so ensuring automation and logging (not just evaluation scores, but also throughput, loss, gradient nomr, and node health) is crucial. 
+**Evals** are also deceptively time-consuming (Allen Institute spent roughly 20% on compute on evals), so ensuring automation and logging (not just evaluation scores, but also throughput, loss, gradient norm, and node health) is crucial. 
 
 ## resolving mysteries
 
-### vanishing throughout 
+### vanishing throughput 
 
-HF observed a ~40% drop in throughout (14k to 8k tokens/sec/GPU) after a few hours of starting the main run. The issue came from data storage; their cluster uses a network-attached storage with a "keep-hot" caching model that stores frequently accessed files and evits "cold" files to third-party S3. With 24TB of training data, the storage was pushed to its limit, so it evicted dataset shards mid-training. This meant fetching them back and creating stalls that slowed throughout. 
+HF observed a ~40% drop in throughput (14k to 8k tokens/sec/GPU) after a few hours of starting the main run. The issue came from data storage; their cluster uses a network-attached storage with a "keep-hot" caching model that stores frequently accessed files and evicts "cold" files to third-party S3. With 24TB of training data, the storage was pushed to its limit, so it evicted dataset shards mid-training. This meant fetching them back and creating stalls that slowed throughput. 
 
-The first fix can in the form of swapping the storage method by reserving a spare node with the dataset preloaded and copying using `fpsync` (`s5cmd` took double the time). This fixed the issue of a node dying and the replacement GPU having no data since by swapping it with the spare node, training could continue. So, the new spare, not to be wasted, could run evals or dev jobs.
+The first fix came in the form of swapping the storage method by reserving a spare node with the dataset preloaded and copying using `fpsync` (`s5cmd` took double the time). This fixed the issue of a node dying and the replacement GPU having no data since by swapping it with the spare node, training could continue. So, the new spare, not to be wasted, could run evals or dev jobs.
 
-Testing again, they found smaller by still prominent drops in throughput. After experimenting with individual nodes that yeilded the same result, they focused on the change in training steps and found that smaller step counts resulted in smaller throughput drops. The`nanotron` dataloader they were using was growing the lookup table making the training step to the next chunk of tokens to read instead of keeping it bounded or precomputed. Stored in global memory, the growing table causes allocation failures and page faults/worse cache locality. So, they switched to `Tokenizedbytes` dataloader, solving the throughout issue.
+Testing again, they found smaller but still prominent drops in throughput. After experimenting with individual nodes that yielded the same result, they focused on the change in training steps and found that smaller step counts resulted in smaller throughput drops. The `nanotron` dataloader they were using was growing the lookup table making the training step to the next chunk of tokens to read instead of keeping it bounded or precomputed. Stored in global memory, the growing table causes allocation failures and page faults/worse cache locality. So, they switched to `Tokenizedbytes` dataloader, solving the throughput issue.
 
 ### noisy loss
 
-However, the loss curve looked more noisy. They found the issue with the dataloader because it reads sequences sequentially for each document. Without **shuffling of sequences**, batches are no longer representative of the overall data distribution, increasing gradient variance. Also, a long file (e.g. code) would supply many conseuctive sequences that would also spike loss. To fix, they reshuffled the tokenized sequences offline; an alternative was changing the dataloader to do random access, which has both higher memory usage and slower runtime.
+However, the loss curve looked more noisy. They found the issue with the dataloader because it reads sequences sequentially for each document. Without **shuffling of sequences**, batches are no longer representative of the overall data distribution, increasing gradient variance. Also, a long file (e.g. code) would supply many consecutive sequences that would also spike loss. To fix, they reshuffled the tokenized sequences offline; an alternative was changing the dataloader to do random access, which has both higher memory usage and slower runtime.
 
 ### unsatisfactory performance
 
@@ -269,14 +269,14 @@ Further, the two TP ranks were initialised with the same random seed instead of 
 
 There are a few common culprits for training instabilities: high learning rate, bad data, data-parameter state interactions ([spikes can come from specific combinations of data batches and model parameter states](https://arxiv.org/abs/2204.02311)), poor initialisation ([OLMo2](https://arxiv.org/abs/2501.00656) revealed that $\mathcal{N}(0, 0.02)$ can improve stability upon scaled initialisation), and precision (eww, not fp16).
 
-Besides aformentioned ideas like **z-loss** or **QKNorm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tighening gradient clipping**.
+Besides aforementioned ideas like **z-loss** or **QKNorm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tightening gradient clipping**.
 
 # post-training
 
 ## evals
 
-Given today's standards of LLMs as coding agents and assistants that can reason, that are four broad class of evals that researchers care about:
-1. **Knowledge**: for small models, GPQA Diamond tests graduate-level multi-choice questions and gives better signa than other evals like MMLU. Another good test for factuality is SimpleQA, although smaller models are much less performant due to limited knowledge.
+Given today's standards of LLMs as coding agents and assistants that can reason, there are four broad classes of evals that researchers care about:
+1. **Knowledge**: for small models, GPQA Diamond tests graduate-level multi-choice questions and gives better signal than other evals like MMLU. Another good test for factuality is SimpleQA, although smaller models are much less performant due to limited knowledge.
 2. **Math**: AIME is still the leading benchmark, with others like MATH-500 providing a useful sanity check for small models.
 3. **Code**: LiveCodeBench tracks both coding competency via competitive programming while SWE-bench Verified is a more sophisticated alternative but much harder for smaller models.
 4. **Multilinguality**: there aren't many options except for Global MMLU to target the languages that models were pretrained on/should perform well in. 
@@ -287,4 +287,36 @@ These evals test the following:
 3. **Alignment**: LMArena with human annotators and public leaderboards is the most popular. But due to the cost of these evaluations, LLM-as-judge evals have emerged, including AlpacaEval and MixEval.
 4. **Tool calling**: TAU-Bench tests a model's ability to use tools to resolve user problems in customer service settings, including retail and airline.
 
-To prevent overfitting, evals that encapsulate robustness or adapatability, like GSMPlus which perturbs problems from GSM8k, are also included. Another way is using **interval evals** or **vibe evaluations/arenas**, such as manually probing the model's behavior. Other tips include using small subsets to accelerate evals (especially if there's correlation with a larger eval), fixing the LLM-as-judge model (if the eval requires it), treat anything used during ablations as validation, use `avg@k` accuracy, and try not to (don't) benchmax! 
+To prevent overfitting, evals that encapsulate robustness or adaptability, like GSMPlus which perturbs problems from GSM8k, are also included. Another way is using **interval evals** or **vibe evaluations/arenas**, such as manually probing the model's behavior. Other tips include using small subsets to accelerate evals (especially if there's correlation with a larger eval), fixing the LLM-as-judge model (if the eval requires it), treat anything used during ablations as validation, use `avg@k` accuracy, and try not to (don't) benchmax!
+
+## sft
+
+Most post-training pipelines start with **supervised fine-tuning (SFT)** because it's *cheap* compared to RL, *stable* due to insensitivity to reward design and hyperparameters, and gives a strong baseline off of the base model. Usually, base models are too unrefined to benefit from more advanced post-training methods. SFT often comes in the form of **distillation from stronger models**. Strong models may suffer from success and skip the SFT stage because there are no stronger models to distill from (such is the case with DeepSeek R1-Zero).
+
+Dataset curation for SFT is important; datasets might seem great on paper, but models trained on those datasets may end up overindexing on certain domains, such as science. To this end, Hugging Face curated a data mixture with ~100k examples and 76.1M tokens, mostly consisting of instruction following, reasoning, and steerability for both think and non-think modes. Importantly, *data should be paired across modes* because otherwise, there is not an indication of when to give a concise answer or use extended reasoning.
+
+For training, there are other considerations as well: full finetuning vs more parameter efficient methods like LoRA or QLoRA, specialized kernels like FlashAttention or the likes of SonicMoE for more efficient compute usage, masking the loss for only assistant tokens, the type of parallelism needed, learning rate tuning, and sequence length tuning to match the distribution of data to speed up training (more useful for larger datasets). 
+
+## chat template
+
+A few important considerations for designing/picking a good chat template include **system role customizability**, **tool calling**, **reasoning**, and **compatability with inference engines** like vLLM or SGLang. Qwen3 and GPT-OSS satisfy all criteria, and Qwen3 is designed for hybrid reasoning, just like SmolLM3. However, they discard the reasoning content for all but the final turn in the conversation to avoid blowing up the context during inference, but for training, it's important to retain the reasoning tokens to condition the model properly. So, Hugging Face orchestrates their own chat template, satisfying all criteria. Vibe tests initially revealed a bug of not passing in the custom instructions into their custom template, but this was quickly patched.
+
+## capabilities
+
+The HuggingFace team found issues in generalising single-turn reasoning data to multi-turn data, stemming from the difficulty in differientating `/think` and `/no_think` tags between turns. So, they constructed a new dataset, IFThink, using `Qwen3-32B` that **augmented single-turn instructions into multi-turn exchanges** with verifiable instructions and reasoning traces; this dramatically improved multi-turn reasoning.
+
+**Masking user turns** is another design choice, since otherwise loss is computed on user queries as well, sacrificing producing high-quality assistant responses for predicting user queries. In practice, masking doesn't have a huge impact on downstream evals, but still yielded improvements by a few points in most cases.
+
+## sequence packing
+
+**Sequence packing** (TRL uses "best-fit decreasing" strategy) is anothed choice that improves training efficiency. The idea is similar to intra-document masking where sequences are packed into a batch so as to not waste padding compute via excessive padding tokens, but with the additional constraint of minimzing truncation of documents across batch boundaries. 
+
+Despite yeilding up to a 33x tokens/batch/optimisation step, for a fixed token budget, packing alters training dynamics since the more data means fewer gradient updates. This especially hurts small datasets where each sample matters more. [TODO: add image]. An effective batch size of 128 hurt evals like IFEval by up to 10%; for effective batch sizes larger then 32, there was an average drop in performance (for SmolLM3 and the dataset). But for large datasets, packing is *almost always beneficial*. 
+
+## learning rate and epochs
+
+The learning rate for SFT is usually an order of magnitude smaller than that for pre-training since the model has alreayd learned rich representations, and agressive updates can lead to catastrophic forgetting. And because SFT runtime is so hosrt compared to pre-training, it makes sense to do full learning rate sweeps. For SmolLM3, learning rates of 3e-6 or 1e-5 worked best. When packing is enabled, it's safer to decrease the learning rate further due to the larger effective batch size and getting fewer updates for the same token budget.
+
+Once a good data mixture is identified and hyperparameters are tuned, training on more than one epoch (what was usually done in ablations) also lead to increased performance by a few percentage points; on LiveCodeBench v4, performance nearly doubled from epoch two to three.
+
+## continued pretraining and reasoning
