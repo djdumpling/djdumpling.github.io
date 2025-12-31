@@ -3,7 +3,7 @@ title: "training at scale"
 date: 2025-12-31
 ---
 
-[WIP] How do labs train a multi-billion parameter model? We look towards Hugging Face's SmolLM3, Allen Institute's Olmo 3, Prime Intellect's Intellect 3, and OpenAI's GPT-OSS-120B. This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models and is structured in more of a "notes" style.
+[WIP] How do labs train a multi-billion parameter model? We look towards Hugging Face's SmolLM3, Allen Institute's Olmo 3, Prime Intellect's Intellect 3, and OpenAI's GPT-OSS-120B. This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with a stronger emphasis on training methodology instead of infrastructure.
 
 These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is supplemented with notes from other reports. Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
 
@@ -326,3 +326,27 @@ The learning rate for SFT is usually an order of magnitude smaller than that for
 Once a good data mixture is identified and hyperparameters are tuned, training on more than one epoch (what was usually done in ablations) also lead to increased performance by a few percentage points; on LiveCodeBench v4, performance nearly doubled from epoch two to three.
 
 An interesting idea explored if whether the optimizers for pre/post-training should be the same. AdamW remains the default choice for both pre/post-training, and when tested with Muon, using the same optimiser still yielded the best performance.
+
+## preference optimization (PO)
+
+Because SFT is fundamentally a form of **imitation learning**, extremely large SFT datasets can be redundant due to diminshing gains or failure modes that aren't encapsulated in the data. Another useful signal is **preference**, i.e. which response, A or B, is preferred and enables model performance to scale beyond the limits of SFT alone. Also, less data is needed for preference optimization than SFT since the starting point is already strong.
+
+For generating preference datasets, there are a few methods:
+1. **Strong vs weak**: for fixed prompts $x$, strong model $S$ and weak model $W$, always prefer the stronger model's output $y_S$ over the weaker model's output $y_W$. This is easy to construct since the stronger model's output is reliably better. With methods like DPO, the difference between strong and weak responses can be enforced.
+2. **On-policy with grading**: using the same model and prompt, generate multiple candidate responses and have an external model (e.g. LLM-as-judges) that score responses using rubrics or verifiers that provides preference labels. This requires a well-calibrated and reliable LLM-as-judge, but also allows for ongoing bootstrapping of preference data.
+
+While preference optimization is generally thought as a medium to improve helpfulness or alignment, it can also teach models to reason better, like using strong-vs-weak preferences.
+
+There are typically three hyperparameters that affect training dynamics:
+1. **Learning rate**: when tested across sizes of being 2x to 200x smaller than the learning rate used in SFT, Zephyr7B found that using a 10x smaller lr provided best performance improvement, and SmolLM3 ended usinga 20x smaller lr (1e-6) to balance performance between `/think` and `/no_think` modes.
+2. **$\beta$**: ranging from 0 to 1, it controls whether to stay closer to the reference model (loss $\beta$) or closer to the preference data (higher $\beta$). If too large, it could erase capabilities from the SFT checkpoint, so $\beta$ values around 0.1 or higher are usually preferrable
+3. **preference dataset size**: when tested with sizes from 2k to 340k pairs, performance largely remained stable, although HuggingFace noted performance drops in extended thinking for datasets beyond 100k pairs. To that point. don't be afraid to create your own preference data, especially with how cheap inference has become.
+
+### algorithms
+
+Besides vanilla **DPO** ([direct preference optimization](https://arxiv.org/abs/2305.18290)), researchers have explored a variety of alternatives:
+1. **KTO** ([Kahneman-Tversky Optimization](https://arxiv.org/abs/2402.01306)): instead of pairs, KTOassigns updates based on whether a sample is labeled desirable/undesirable, taking ideas from human decision making along with a reference point $z_0$ and a reward-like log-ratio term.
+2. **ORPO** ([odds ratio preference optimization](https://arxiv.org/abs/2403.07691)): incorporates PO with with SFT via an integrated odds ratio term to the cross-entropy loss. This makes it more computationally efficient since there is no need to use a separate reference model that is used in DPO to compute $r_\theta(x,y)$.
+3. **APO** ([anchored preference optimization](https://arxiv.org/abs/2408.06266)): rather than just optimising the difference between $y^+$ and $y^-$ in DPO, **APO-zero** forces $y^+$ up and $y^-$ down while **APO-down** pushes both $y^+, y^-$ down (useful if the quality of $y^+$ is below that of the current model)
+
+HuggingFacefound that APO-zero had the best overall out-of-domain performance.
