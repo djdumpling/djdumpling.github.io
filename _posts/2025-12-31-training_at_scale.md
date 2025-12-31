@@ -158,16 +158,19 @@ Choosing optimizers and tuning hyperparameters is notoriously time-consuming. Wh
 ## adamW
 
 Despite being invented over 10 years ago, AdamW still stands the test of time. Adam (adaptive momentum estimation) updates weights individually based on an exponential weighted average of gradients $g_t$ and an exponential weighted average of squared gradients $g_t^2$, along with weight decay (the "W"): 
+
 $$\begin{align*}
 \theta &\leftarrow (1-\alpha \lambda)\theta - \alpha \frac{\hat{m}_t}{\sqrt{v_t}+\epsilon} \\
 \hat{m}_t &= \frac{m_t}{1-\beta_1^t}, \quad m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t \\
 \hat{v}_t &= \frac{v_t}{1-\beta_2^t}, \quad v_t = \beta_2 v_{t-1} + (1-\beta_2) g_t^2
 \end{align*}$$
+
 Even for modern LLMs, the hyperparameters remain largely unchanged: weight decay factor $\lambda=0.1$ or $\lambda=0.01$, $\beta_1=0.9$, and $\beta_2=0.95$. 
 
 ## muon
 
 Unlike adamW which updates per-parameter, muon treats the weight matrix as a singular object and updates based on:
+
 $$\begin{align*}
 g_t &\leftarrow \nabla_\theta \mathcal{L}_t(\theta_{t-1}) \\
 B_t &\leftarrow \mu B_{t-1} + G_t \\
