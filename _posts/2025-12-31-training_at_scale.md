@@ -3,7 +3,7 @@ title: "training at scale"
 date: 2025-12-31
 ---
 
-[WIP] How do labs train a multi-billion parameter model? We look towards Hugging Face's SmolLM3, Allen Institute's Olmo 3, Prime Intellect's Intellect 3, and OpenAI's GPT-OSS-120B. This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with a stronger emphasis on training methodology instead of infrastructure.
+[WIP] How do labs train a multi-billion parameter model? We look towards Hugging Face's SmolLM3, Allen Institute's Olmo 3, Prime Intellect's Intellect 3, and OpenAI's GPT-OSS-120B. This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with a stronger emphasis on training methodology instead of infrastructure (another blog).
 
 These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is supplemented with notes from other reports. Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
 
@@ -368,3 +368,21 @@ The goal of RLVR on hybrid reasoning models to improve reasoning capabilities wi
 This can be mitigated via an [overlong completion penalty](https://arxiv.org/abs/2503.14476) which penalizes completions over a certain length, which is a function parametrized by a soft punishment threshold and a hard punishment threshold/max completion length. Penalty increases from the soft to the hard threshold, and past the latter, the punishment is -1 (effective reward = 0).
 
 For `\no_think`, SmolLM3 decided on a length penalty in the range of 2.5k-3k that balanced improvement in performance and increase in response length. However, doing RL *jointly* on hybrid reasoning models is difficult since it requires separate length penalys, whose interplay can cause instability. This is also why labs release `instruct` and `reasoning` variants separately.
+
+### alternatives to RL
+
+One alternative is **online DPO** (see "On policy with grading" in the preference optimization section). Another is **on-policy distillation**. Instead of preferences, the signal comes from a stronger teacher model, where the student samples responses at every training step and the KL divergence between the student/teacher logits provides the learning signal. That way, the student can continuously learn from the teacher. Also, on-policy distillation is much cheaper than GRPO since instead of sampling multiple rollouts per prompt, we only sample one, which is graded by the teacher in a single forward-backward pass; it's performance post, as the Qwen3 tech report notes, can be larger across the board as well. On limiting factor is that the student and the teacher must share the same tokenizer, and HuggingFace's [General On-Policy Logit Distillation](https://huggingface.co/spaces/HuggingFaceH4/on-policy-distillation) (GOLD) allows any teacher to be distilled into any student. 
+
+[Thinking Machine's blog](https://thinkingmachines.ai/blog/on-policy-distillation/) further showed that on-policy distilllation mitigates **catastrophic forgetting**, where a model post-trained on a new model regresses on other, previous domains. Specifically, they found that midtraining 70% and with on-policy distillation can achieve close to the best performance of a model and its mid-trained version, effectively restoring behavior with cheap distillation.
+
+[TODO: add image here]
+
+Given these aformentioned algorithms, choosing between them can be hard; HuggingFace aptly describes it:
+
+| Algorithm | When to Use | Tradeoffs | Best for Model Size |
+|-----------|-------------|-----------|---------------------|
+| Online DPO | You can get preference labels cheaply. Best for aligning behaviour with evolving distributions. | Easy to scale iteratively, more stable than RL, but depends on label quality and coverage. Supported in few training frameworks. | Any size, where preferences capture improvements beyond imitation. |
+| On-policy distillation | You have access to a stronger teacher model and want to transfer capabilities efficiently. | Simple to implement, cheap to run, inherits teacher biases, ceiling limited by teacher. Supported only in TRL and NemoRL | Most effective for small to mid-sized models (<30B). |
+| Reinforcement learning | Best when you have verifiable rewards or tasks requiring multi-step reasoning/planning. Can be used with reward models, but there are challenges like reward-hacking, where the model takes advantage in weaknesses in the reward model. | Flexible and powerful, but costly and harder to stabilise; requires careful reward shaping. Supported in most post-training frameworks. | Mid to large models (20B+), where extra capacity lets them exploit structured reward signals. |
+
+And for DPO (semi-online and online), it is also possible to match GRPO using far less compute. Specifically, they found that semi-online DPO (with syncing between the trainer and the generator every 100 steps) was generally the best compared to semi-online DPO with sync every 10 step,s online DPO, and GRPO.
