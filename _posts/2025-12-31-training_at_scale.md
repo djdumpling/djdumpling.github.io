@@ -3,9 +3,9 @@ title: "frontier model training methodologies"
 date: 2025-12-31
 ---
 
-[WIP] How do labs train a multi-billion parameter model? We look towards Hugging Face's SmolLM3, Allen Institute's Olmo 3, Prime Intellect's Intellect 3, and OpenAI's GPT-OSS-120B. This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with a stronger emphasis on training methodology instead of infrastructure.
+[WIP] How do labs train a multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Allen Institute's [Olmo 3](https://arxiv.org/abs/2512.13961), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/pdf/2508.18255), and OpenAI's [GPT-OSS-120B](https://arxiv.org/pdf/2508.10925). This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with a stronger emphasis on training methodology instead of infrastructure.
 
-These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is supplemented with notes from other reports. Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
+These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is supplemented with notes from other reports (in progress). Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
 
 ## (extremely broad) general practices
 
@@ -109,7 +109,7 @@ $$\mathbf{S}_t=\mathbf{G}_t \odot \mathbf{S}_{t-1} + \mathbf{v}_t\mathbf{k}_t^\t
 
 ## $z$-loss
 
-$z$-loss is a regularization term added to the standard cross entropy loss that keeps logits from drifting to large magnitudes. By adding $\mathcal{L}_{\text{z-loss}} = \lambda \cdot \log^2(Z) = \lambda \sum_{i=1}^V e^{z_i}$, representing the denominator in the softmax the loss now penalizes based on $\log(Z)$ which represents the overall logit scale. 
+$z$-loss is a regularization term added to the standard cross entropy loss that keeps logits from drifting to large magnitudes. By adding $\mathcal{L} = \lambda \cdot \log^2(Z) = \lambda \sum_{i=1}^V e^{z_i}$, representing the denominator in the softmax the loss now penalizes based on $\log(Z)$ which represents the overall logit scale. 
 
 On their 1B model, HF found that adding $Z$-loss didn't impact training loss or downstream performance, so they chose not to include it due to training overhead.
 
@@ -186,7 +186,7 @@ There is a [critical batch size](https://arxiv.org/abs/1812.06162): too small an
 
 A useful proxy is that for optimizers like AdamW or Muon, if the batch size squares up by $k$ then the learning rate should scale up by $\sqrt{k}$. This is because the covariance shrinks by a factor of $k$, and based on the SGD parameter update $\Delta w = -\eta g_B$ , so $\text{Var}(\Delta w) \sim \eta^2 \frac{\Sigma}{B}$  where $B$ is the original batch size, so $\eta \sim \sqrt{k}$. 
 
-As training progresses, the critical batch size grows. Initially, since the model is making large updates, $\mid \mid g \mid \mid ^2$ is large so the model should have a small critical batch size. After the model stabilizes, larger batches become more effective. This motivates the idea of *batch size warmup*. 
+As training progresses, the critical batch size grows. Initially, since the model is making large updates, $||g||^2$ is large so the model should have a small critical batch size. After the model stabilizes, larger batches become more effective. This motivates the idea of *batch size warmup*. 
 
 ## scaling laws
 
@@ -290,9 +290,9 @@ To prevent overfitting, evals that encapsulate robustness or adaptability, like 
 
 ## mid-training and reasoning
 
-**Mid-training** is the intermediary step between pre-training and post-training where the base model is trained further on a large amount of domain-specific tokens, especially shaping the model to being focusing on common core skills like coding or reasoning. Often-times, the decision to mid-train is only made *after* initial SFT experiments are run between they may reveal performance gaps that indicate the need to mid-train on certain domains. But if the goal is to elicit shallow cpabilities like style or conversation, the compute is better spent in post-training.
+**Mid-training** is the intermediary step between pre-training and post-training where the base model is trained further on a large amount of domain-specific tokens, especially shaping the model to focus on common core skills like coding or reasoning. Often-times, the decision to mid-train is only made *after* initial SFT experiments are run because they may reveal performance gaps that indicate the need to mid-train on certain domains. But if the goal is to elicit shallow capabilities like style or conversation, the compute is better spent in post-training.
 
-While the data usually comes from web data, it also makes sense to use distilled reasoning tokens from a better model, as `Phi-4-Mini-Reasoning` did from `DeepSeek-R1`. Upon the base model, distilled mid-training increased benchmark scores like AIM24 by 3x, MATH-500 by 11 points, and GPQA-D by almost 6 points. SmolLM3 also does distilled mid-training. They considered datasets including reasoning tokens from DeepSeek-R1 (4M samples) and QwQ-32B (1.2M samples) but decide to delay using the [Mixture of Thoughts](https://huggingface.co/datasets/open-r1/Mixture-of-Thoughts) dataset until the final SFT mix. They found that it almost always makes sense to perform some amoutn of mid-training if the base model hasn't already seen lots of reasoning data during pre-training, because they noticed that `/no_think` reasoning mode also had improvements on reasoning benchmarks.
+While the data usually comes from web data, it also makes sense to use distilled reasoning tokens from a better model, as `Phi-4-Mini-Reasoning` did from `DeepSeek-R1`. Upon the base model, distilled mid-training increased benchmark scores like AIM24 by 3x, MATH-500 by 11 points, and GPQA-D by almost 6 points. SmolLM3 also does distilled mid-training. They considered datasets including reasoning tokens from DeepSeek-R1 (4M samples) and QwQ-32B (1.2M samples) but decide to delay using the [Mixture of Thoughts](https://huggingface.co/datasets/open-r1/Mixture-of-Thoughts) dataset until the final SFT mix. They found that it almost always makes sense to perform some amount of mid-training if the base model hasn't already seen lots of reasoning data during pre-training, because they noticed that `/no_think` reasoning mode also had improvements on reasoning benchmarks.
 
 ## sft
 
@@ -304,23 +304,23 @@ For training, there are other considerations as well: full finetuning vs more pa
 
 ## chat template
 
-A few important considerations for designing/picking a good chat template include **system role customizability**, **tool calling**, **reasoning**, and **compatability with inference engines** like vLLM or SGLang. Qwen3 and GPT-OSS satisfy all criteria, and Qwen3 is designed for hybrid reasoning, just like SmolLM3. However, they discard the reasoning content for all but the final turn in the conversation to avoid blowing up the context during inference, but for training, it's important to retain the reasoning tokens to condition the model properly. So, Hugging Face orchestrates their own chat template, satisfying all criteria. Vibe tests initially revealed a bug of not passing in the custom instructions into their custom template, but this was quickly patched.
+A few important considerations for designing/picking a good chat template include **system role customizability**, **tool calling**, **reasoning**, and **compatibility with inference engines** like vLLM or SGLang. Qwen3 and GPT-OSS satisfy all criteria, and Qwen3 is designed for hybrid reasoning, just like SmolLM3. However, they discard the reasoning content for all but the final turn in the conversation to avoid blowing up the context during inference, but for training, it's important to retain the reasoning tokens to condition the model properly. So, Hugging Face orchestrates their own chat template, satisfying all criteria. Vibe tests initially revealed a bug of not passing in the custom instructions into their custom template, but this was quickly patched.
 
 ## capabilities
 
-The HuggingFace team found issues in generalising single-turn reasoning data to multi-turn data, stemming from the difficulty in differientating `/think` and `/no_think` tags between turns. So, they constructed a new dataset, IFThink, using `Qwen3-32B` that **augmented single-turn instructions into multi-turn exchanges** with verifiable instructions and reasoning traces; this dramatically improved multi-turn reasoning.
+The HuggingFace team found issues in generalising single-turn reasoning data to multi-turn data, stemming from the difficulty in differentiating `/think` and `/no_think` tags between turns. So, they constructed a new dataset, IFThink, using `Qwen3-32B` that **augmented single-turn instructions into multi-turn exchanges** with verifiable instructions and reasoning traces; this dramatically improved multi-turn reasoning.
 
 **Masking user turns** is another design choice, since otherwise loss is computed on user queries as well, sacrificing producing high-quality assistant responses for predicting user queries. In practice, masking doesn't have a huge impact on downstream evals, but still yielded improvements by a few points in most cases.
 
 ## sequence packing
 
-**Sequence packing** (TRL uses "best-fit decreasing" strategy) is anothed choice that improves training efficiency. The idea is similar to intra-document masking where sequences are packed into a batch so as to not waste padding compute via excessive padding tokens, but with the additional constraint of minimzing truncation of documents across batch boundaries. 
+**Sequence packing** (TRL uses "best-fit decreasing" strategy) is another choice that improves training efficiency. The idea is similar to intra-document masking where sequences are packed into a batch so as to not waste padding compute via excessive padding tokens, but with the additional constraint of minimizing truncation of documents across batch boundaries. 
 
-Despite yeilding up to a 33x tokens/batch/optimisation step, for a fixed token budget, packing alters training dynamics since the more data means fewer gradient updates. This especially hurts small datasets where each sample matters more. [TODO: add image]. An effective batch size of 128 hurt evals like IFEval by up to 10%; for effective batch sizes larger then 32, there was an average drop in performance (for SmolLM3 and the dataset). But for large datasets, packing is *almost always beneficial*. 
+Despite yielding up to a 33x tokens/batch/optimization step, for a fixed token budget, packing alters training dynamics since the more data means fewer gradient updates. This especially hurts small datasets where each sample matters more. [TODO: add image]. An effective batch size of 128 hurt evals like IFEval by up to 10%; for effective batch sizes larger than 32, there was an average drop in performance (for SmolLM3 and the dataset). But for large datasets, packing is *almost always beneficial*. 
 
 ## learning rate and epochs
 
-The learning rate for SFT is usually an order of magnitude smaller than that for pre-training since the model has alreayd learned rich representations, and agressive updates can lead to catastrophic forgetting. And because SFT runtime is so hosrt compared to pre-training, it makes sense to do full learning rate sweeps. For SmolLM3, learning rates of 3e-6 or 1e-5 worked best. When packing is enabled, it's safer to decrease the learning rate further due to the larger effective batch size and getting fewer updates for the same token budget.
+The learning rate for SFT is usually an order of magnitude smaller than that for pre-training since the model has already learned rich representations, and aggressive updates can lead to catastrophic forgetting. And because SFT runtime is so short compared to pre-training, it makes sense to do full learning rate sweeps. For SmolLM3, learning rates of 3e-6 or 1e-5 worked best. When packing is enabled, it's safer to decrease the learning rate further due to the larger effective batch size and getting fewer updates for the same token budget.
 
 Once a good data mixture is identified and hyperparameters are tuned, training on more than one epoch (what was usually done in ablations) also lead to increased performance by a few percentage points; on LiveCodeBench v4, performance nearly doubled from epoch two to three.
 
@@ -328,7 +328,7 @@ An interesting idea explored if whether the optimizers for pre/post-training sho
 
 ## preference optimization (PO)
 
-Because SFT is fundamentally a form of **imitation learning**, extremely large SFT datasets can be redundant due to diminshing gains or failure modes that aren't encapsulated in the data. Another useful signal is **preference**, i.e. which response, A or B, is preferred and enables model performance to scale beyond the limits of SFT alone. Also, less data is needed for preference optimization than SFT since the starting point is already strong.
+Because SFT is fundamentally a form of **imitation learning**, extremely large SFT datasets can be redundant due to diminishing gains or failure modes that aren't encapsulated in the data. Another useful signal is **preference**, i.e. which response, A or B, is preferred and enables model performance to scale beyond the limits of SFT alone. Also, less data is needed for preference optimization than SFT since the starting point is already strong.
 
 For generating preference datasets, there are a few methods:
 1. **Strong vs weak**: for fixed prompts $x$, strong model $S$ and weak model $W$, always prefer the stronger model's output $y_S$ over the weaker model's output $y_W$. This is easy to construct since the stronger model's output is reliably better. With methods like DPO, the difference between strong and weak responses can be enforced.
@@ -337,16 +337,16 @@ For generating preference datasets, there are a few methods:
 While preference optimization is generally thought as a medium to improve helpfulness or alignment, it can also teach models to reason better, like using strong-vs-weak preferences.
 
 There are typically three hyperparameters that affect training dynamics:
-1. **Learning rate**: when tested across sizes of being 2x to 200x smaller than the learning rate used in SFT, Zephyr7B found that using a 10x smaller lr provided best performance improvement, and SmolLM3 ended usinga 20x smaller lr (1e-6) to balance performance between `/think` and `/no_think` modes.
-2. **$\beta$**: ranging from 0 to 1, it controls whether to stay closer to the reference model (loss $\beta$) or closer to the preference data (higher $\beta$). If too large, it could erase capabilities from the SFT checkpoint, so $\beta$ values around 0.1 or higher are usually preferrable
-3. **preference dataset size**: when tested with sizes from 2k to 340k pairs, performance largely remained stable, although HuggingFace noted performance drops in extended thinking for datasets beyond 100k pairs. To that point. don't be afraid to create your own preference data, especially with how cheap inference has become.
+1. **Learning rate**: when tested across sizes of being 2x to 200x smaller than the learning rate used in SFT, Zephyr7B found that using a 10x smaller lr provided best performance improvement, and SmolLM3 ended using a 20x smaller lr (1e-6) to balance performance between `/think` and `/no_think` modes.
+2. **$\beta$**: ranging from 0 to 1, it controls whether to stay closer to the reference model (loss $\beta$) or closer to the preference data (higher $\beta$). If too large, it could erase capabilities from the SFT checkpoint, so $\beta$ values around 0.1 or higher are usually preferable
+3. **preference dataset size**: when tested with sizes from 2k to 340k pairs, performance largely remained stable, although HuggingFace noted performance drops in extended thinking for datasets beyond 100k pairs. To that point, don't be afraid to create your own preference data, especially with how cheap inference has become.
 
 ### algorithms
 
 Besides vanilla **DPO** ([direct preference optimization](https://arxiv.org/abs/2305.18290)), researchers have explored a variety of alternatives:
-1. **KTO** ([Kahneman-Tversky Optimization](https://arxiv.org/abs/2402.01306)): instead of pairs, KTOassigns updates based on whether a sample is labeled desirable/undesirable, taking ideas from human decision making along with a reference point $z_0$ and a reward-like log-ratio term.
-2. **ORPO** ([odds ratio preference optimization](https://arxiv.org/abs/2403.07691)): incorporates PO with with SFT via an integrated odds ratio term to the cross-entropy loss. This makes it more computationally efficient since there is no need to use a separate reference model that is used in DPO to compute $r_\theta(x,y)$.
-3. **APO** ([anchored preference optimization](https://arxiv.org/abs/2408.06266)): rather than just optimising the difference between $y^+$ and $y^-$ in DPO, **APO-zero** forces $y^+$ up and $y^-$ down while **APO-down** pushes both $y^+, y^-$ down (useful if the quality of $y^+$ is below that of the current model)
+1. **KTO** ([Kahneman-Tversky Optimization](https://arxiv.org/abs/2402.01306)): instead of pairs, KTO assigns updates based on whether a sample is labeled desirable/undesirable, taking ideas from human decision making along with a reference point $z_0$ and a reward-like log-ratio term.
+2. **ORPO** ([odds ratio preference optimization](https://arxiv.org/abs/2403.07691)): incorporates PO with SFT via an integrated odds ratio term to the cross-entropy loss. This makes it more computationally efficient since there is no need to use a separate reference model that is used in DPO to compute $r_\theta(x,y)$.
+3. **APO** ([anchored preference optimization](https://arxiv.org/abs/2408.06266)): rather than just optimizing the difference between $y^+$ and $y^-$ in DPO, **APO-zero** forces $y^+$ up and $y^-$ down while **APO-down** pushes both $y^+, y^-$ down (useful if the quality of $y^+$ is below that of the current model)
 
 HuggingFace found that APO-zero had the best overall out-of-domain performance.
 
@@ -354,7 +354,7 @@ HuggingFace found that APO-zero had the best overall out-of-domain performance.
 
 SFT and PO can hit ceilings because fundamentally, they optimize to produce outputs that look like the dataset and PO is often off-policy and weak at multi-step credit assignment. RL (reinforcement learning) helps by providing a **reward signal** through interaction with an environment. **Verifiers** can automatically check correctness and provide those reward signals, and **objectives** can be optimized for beyond preference labels.
 
-In RLHF (**RL from human feedback**), human comparisons are provided, and a *reward model* is traiend to predict the human preference singal. Then, the policy is fine-tuned with RL to maximize the learned reward. This way, RLHF does **on-policy optimization** since it does rollouts using the current policy used in training and updates based on the reward given by the reward model. This also allows RLHF to disocver behaviors not present in the preference dataset. 
+In RLHF (**RL from human feedback**), human comparisons are provided, and a *reward model* is trained to predict the human preference signal. Then, the policy is fine-tuned with RL to maximize the learned reward. This way, RLHF does **on-policy optimization** since it does rollouts using the current policy used in training and updates based on the reward given by the reward model. This also allows RLHF to discover behaviors not present in the preference dataset. 
 
 In RLVR (**RL with verifiable rewards**), popularised by DeepSeek-R1, *verifiers* check whether a model's output matches criteria (e.g. whether it produced the correct math answer or passed all code unit tests). Then, the policy is fine-tuned to produce more verifiably-correct outputs.
 
@@ -362,21 +362,21 @@ Despite policy optimization algorithms are commonly on-policy, like GRPO, in pra
 
 ### RLVR on hybrid reasoning models
 
-The goal of RLVR on hybrid reasoning models to improve reasoning capabilities without extending the token count too radically. For `/no_think`, naively applying GRPO can lead to **reward hacking** since the model beings to emit longer CoT (shifting towards `/think`); as such, both reward and token length increase. SmolLM3 observed this and found that RLVRed `/no_think` traces showed [cognitive behaviors](https://arxiv.org/abs/2503.01307) like "Wait, ..." associated with reasoning models. 
+The goal of RLVR on hybrid reasoning models to improve reasoning capabilities without extending the token count too radically. For `/no_think`, naively applying GRPO can lead to **reward hacking** since the model begins to emit longer CoT (shifting towards `/think`); as such, both reward and token length increase. SmolLM3 observed this and found that RLVRed `/no_think` traces showed [cognitive behaviors](https://arxiv.org/abs/2503.01307) like "Wait, ..." associated with reasoning models. 
 
 This can be mitigated via an [overlong completion penalty](https://arxiv.org/abs/2503.14476) which penalizes completions over a certain length, which is a function parametrized by a soft punishment threshold and a hard punishment threshold/max completion length. Penalty increases from the soft to the hard threshold, and past the latter, the punishment is -1 (effective reward = 0).
 
-For `\no_think`, SmolLM3 decided on a length penalty in the range of 2.5k-3k that balanced improvement in performance and increase in response length. However, doing RL *jointly* on hybrid reasoning models is difficult since it requires separate length penalys, whose interplay can cause instability. This is also why labs release `instruct` and `reasoning` variants separately.
+For `\no_think`, SmolLM3 decided on a length penalty in the range of 2.5k-3k that balanced improvement in performance and increase in response length. However, doing RL *jointly* on hybrid reasoning models is difficult since it requires separate length penalties, whose interplay can cause instability. This is also why labs release `instruct` and `reasoning` variants separately.
 
 ### alternatives to RL
 
 One alternative is **online DPO** (see "On policy with grading" in the preference optimization section). Another is **on-policy distillation**. Instead of preferences, the signal comes from a stronger teacher model, where the student samples responses at every training step and the KL divergence between the student/teacher logits provides the learning signal. That way, the student can continuously learn from the teacher. Also, on-policy distillation is much cheaper than GRPO since instead of sampling multiple rollouts per prompt, we only sample one, which is graded by the teacher in a single forward-backward pass; it's performance post, as the Qwen3 tech report notes, can be larger across the board as well. On limiting factor is that the student and the teacher must share the same tokenizer, and HuggingFace's [General On-Policy Logit Distillation](https://huggingface.co/spaces/HuggingFaceH4/on-policy-distillation) (GOLD) allows any teacher to be distilled into any student. 
 
-[Thinking Machine's blog](https://thinkingmachines.ai/blog/on-policy-distillation/) further showed that on-policy distilllation mitigates **catastrophic forgetting**, where a model post-trained on a new model regresses on other, previous domains. Specifically, they found that midtraining 70% and with on-policy distillation can achieve close to the best performance of a model and its mid-trained version, effectively restoring behavior with cheap distillation.
+[Thinking Machine's blog](https://thinkingmachines.ai/blog/on-policy-distillation/) further showed that on-policy distillation mitigates **catastrophic forgetting**, where a model post-trained on a new model regresses on other, previous domains. Specifically, they found that mid-training 70% and with on-policy distillation can achieve close to the best performance of a model and its mid-trained version, effectively restoring behavior with cheap distillation.
 
 [TODO: add image here]
 
-Given these aformentioned algorithms, choosing between them can be hard; HuggingFace aptly describes it:
+Given these aforementioned algorithms, choosing between them can be hard; HuggingFace aptly describes it:
 
 | Algorithm | When to Use | Tradeoffs | Best for Model Size |
 |-----------|-------------|-----------|---------------------|
@@ -384,4 +384,4 @@ Given these aformentioned algorithms, choosing between them can be hard; Hugging
 | On-policy distillation | You have access to a stronger teacher model and want to transfer capabilities efficiently. | Simple to implement, cheap to run, inherits teacher biases, ceiling limited by teacher. Supported only in TRL and NemoRL | Most effective for small to mid-sized models (<30B). |
 | Reinforcement learning | Best when you have verifiable rewards or tasks requiring multi-step reasoning/planning. Can be used with reward models, but there are challenges like reward-hacking, where the model takes advantage in weaknesses in the reward model. | Flexible and powerful, but costly and harder to stabilise; requires careful reward shaping. Supported in most post-training frameworks. | Mid to large models (20B+), where extra capacity lets them exploit structured reward signals. |
 
-And for DPO (semi-online and online), it is also possible to match GRPO using far less compute. Specifically, they found that semi-online DPO (with syncing between the trainer and the generator every 100 steps) was generally the best compared to semi-online DPO with sync every 10 step,s online DPO, and GRPO.
+And for DPO (semi-online and online), it is also possible to match GRPO using far less compute. Specifically, they found that semi-online DPO (with syncing between the trainer and the generator every 100 steps) was generally the best compared to semi-online DPO with sync every 10 steps, online DPO, and GRPO.
