@@ -349,4 +349,22 @@ Besides vanilla **DPO** ([direct preference optimization](https://arxiv.org/abs/
 2. **ORPO** ([odds ratio preference optimization](https://arxiv.org/abs/2403.07691)): incorporates PO with with SFT via an integrated odds ratio term to the cross-entropy loss. This makes it more computationally efficient since there is no need to use a separate reference model that is used in DPO to compute $r_\theta(x,y)$.
 3. **APO** ([anchored preference optimization](https://arxiv.org/abs/2408.06266)): rather than just optimising the difference between $y^+$ and $y^-$ in DPO, **APO-zero** forces $y^+$ up and $y^-$ down while **APO-down** pushes both $y^+, y^-$ down (useful if the quality of $y^+$ is below that of the current model)
 
-HuggingFacefound that APO-zero had the best overall out-of-domain performance.
+HuggingFace found that APO-zero had the best overall out-of-domain performance.
+
+## RL
+
+SFT and PO can hit ceilings because fundamentally, they optimize to produce outputs that look like the dataset and PO is often off-policy and weak at multi-step credit assignment. RL (reinforcement learning) helps by providing a **reward signal** through interaction with an environment. **Verifiers** can automatically check correctness and provide those reward signals, and **objectives** can be optimized for beyond preference labels.
+
+In RLHF (**RL from human feedback**), human comparisons are provided, and a *reward model* is traiend to predict the human preference singal. Then, the policy is fine-tuned with RL to maximize the learned reward. This way, RLHF does **on-policy optimization** since it does rollouts using the current policy used in training and updates based on the reward given by the reward model. This also allows RLHF to disocver behaviors not present in the preference dataset. 
+
+In RLVR (**RL with verifiable rewards**), popularised by DeepSeek-R1, *verifiers* check whether a model's output matches criteria (e.g. whether it produced the correct math answer or passed all code unit tests). Then, the policy is fine-tuned to produce more verifiably-correct outputs.
+
+Despite policy optimization algorithms are commonly on-policy, like GRPO, in practice, to maximize throughput, they may actually be slightly off-policy. For example, in GRPO, without freezing the policy, generating multiple rollout batches and doing optimizer updates sequentially makes only the first batch on-policy and all subsequent batches off-policy; this is known as **in-flight updates**. [TODO: check OLMo video for image]
+
+### RLVR on hybrid reasoning models
+
+The goal of RLVR on hybrid reasoning models to improve reasoning capabilities without extending the token count too radically. For `/no_think`, naively applying GRPO can lead to **reward hacking** since the model beings to emit longer CoT (shifting towards `/think`); as such, both reward and token length increase. SmolLM3 observed this and found that RLVRed `/no_think` traces showed [cognitive behaviors](https://arxiv.org/abs/2503.01307) like "Wait, ..." associated with reasoning models. 
+
+This can be mitigated via an [overlong completion penalty](https://arxiv.org/abs/2503.14476) which penalizes completions over a certain length, which is a function parametrized by a soft punishment threshold and a hard punishment threshold/max completion length. Penalty increases from the soft to the hard threshold, and past the latter, the punishment is -1 (effective reward = 0).
+
+For `\no_think`, SmolLM3 decided on a length penalty in the range of 2.5k-3k that balanced improvement in performance and increase in response length. However, doing RL *jointly* on hybrid reasoning models is difficult since it requires separate length penalys, whose interplay can cause instability. This is also why labs release `instruct` and `reasoning` variants separately.
