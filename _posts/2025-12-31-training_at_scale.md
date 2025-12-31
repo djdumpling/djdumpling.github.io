@@ -74,7 +74,7 @@ HuggingFace ran ablations using RoPE, RNoPE (removing positional encoding every 
 ## attention for long contexts
 
 <img src="/public/training/attention.png" alt="Attention patterns comparison showing causal masking, chunked attention, sliding window attention, RoPE ABF, and DCA" style="width: 75%; display: block; margin: 0 auto;">
-<div style="text-align: center;">*Figure 1*: five common types of attention. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook).</div> 
+<p style="text-align: center;">*Figure 1*: five common types of attention. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook).</p> 
 
 An alternative to adjusting positional encodings for long contexts is specifying the strength of which tokens can attend to one another. 
 
@@ -87,7 +87,7 @@ An alternative to adjusting positional encodings for long contexts is specifying
 MoEs (mixture of experts), analogous to our brain activating different parts of our brain, provide an alternative to dense models due to only certain "experts" being used at inference time, saving lots of compute. The MoE works by replacing the feed forward layer with multiple MLPs (experts) and add a learnable router before the MLPs to select the experts.
 
 <img src="/public/training/moe.png" alt="MoE architecture" style="width: 75%; display: block; margin: 0 auto;">
-<div style="text-align: center;">*Figure 2*: Comparison of dense architecture and MoE architecture. From [Sebastian Raschka](https://sebastianraschka.com/).</div>
+<p style="text-align: center;">*Figure 2*: Comparison of dense architecture and MoE architecture. From [Sebastian Raschka](https://sebastianraschka.com/).</p>
 
 In general, for fixed number and size of active experts, increasing the total number of experts improves loss, and [high sparsity improves performance](https://arxiv.org/abs/2507.20534) and [benefits more from increasing compute](https://arxiv.org/abs/2507.17702). Recent models are much more sparse, with over 100 experts and around 10 active per token.
 
@@ -194,7 +194,7 @@ where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750
 Learning rates have their own life cycle: they warmup (typically 1%-5% of training steps for short trainings, but large labs fix the warmup steps) from zero to avoid chaos, then anneal after settling into a good minimum. [Cosine annealing](https://arxiv.org/abs/1608.03983) was the go-to scheduler, but it's also inflexible due to the cosine period needing to match the total training duration. Alternatives include [warmup-stable-decay (WSD)](https://arxiv.org/abs/2404.06395) and [multi-step](https://arxiv.org/abs/2401.02954); in the last x% of tokens, the former linearly decays the learning rate whereas multi-step does discrete drops. for WSD, typically 10-20% is allocated for the decay phase, matching cosine annealing; in multi-step, 80/10/10 also matches cosine annealing while 70/15/15 and 60/20/20 can outperform it. Deepseek-v3 used cosine annealing between the decay drops and added a constant phase before the final sharp step.
 
 <img src="/public/training/learning_rates.png" alt="Learning rate schedules comparison" style="width: 75%; display: block; margin: 0 auto;">
-<div style="text-align: center;">*Figure 3*: Comparison of learning rate schedules: cosine annealing, WSD, and multi-step. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook).</div> 
+<p style="text-align: center;">*Figure 3*: Comparison of learning rate schedules: cosine annealing, WSD, and multi-step. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook).</p> 
 
 HuggingFace's ablations (on their 1B model) showed that WSD tended to underperform cosine annealing before WSD's decay began, but once it entered its decay phase, WSD showed nearly linear improvement in both loss and eval metrics, which allowed it to catch up to cosine annealing by the end. After running further ablations on the learning rate, the HuggingFace team settled on 2e-4; increasing led to potential increased risk of instability during long training runs.
 
@@ -215,7 +215,7 @@ Scaling laws (e.g. [Chinchilla scaling laws](https://arxiv.org/abs/2203.15556)) 
 First, $C \approx 6 \cdot N \cdot D$ where $C$ is the compute budget measured in FLOPs, N is the number of parameters, and $D$ is the number of training tokens. The 6 is derived from empirical estimates for the number of FLOPs per parameter.
 
 <img src="/public/training/deepseek.png" alt="Scaling curves of batch size and learning rate" style="width: 75%; display: block; margin: 0 auto;">
-<div style="text-align: center;">*Figure 4*: Scaling curves of batch size and learning rate. From [DeepSeek](https://arxiv.org/abs/2407.05065).</div>
+<p style="text-align: center;">*Figure 4*: Scaling curves of batch size and learning rate. From [DeepSeek](https://arxiv.org/abs/2407.05065).</p>
 
 Initially, [scaling laws](https://arxiv.org/abs/2001.08361) indicates that language model size was the main constraint, leading to a GPT-3 model with 175B parameters but only trained on 300B tokens. A [re-derivation](https://arxiv.org/abs/2203.15556) found that training duration could improve gains more than size; they found that compute-optimal training of GPT-3 should have consumed 3.7T tokens.
 
@@ -340,7 +340,7 @@ The HuggingFace team found issues in generalising single-turn reasoning data to 
 Despite yielding up to a 33x tokens/batch/optimization step, for a fixed token budget, packing alters training dynamics since the more data means fewer gradient updates. This especially hurts small datasets where each sample matters more. An effective batch size of 128 hurt evals like IFEval by up to 10%; for effective batch sizes larger than 32, there was an average drop in performance (for SmolLM3 and the dataset). But for large datasets, packing is *almost always beneficial*.
 
 <img src="/public/training/sequence_packing.png" alt="Sequence packing comparison" style="width: 75%; display: block; margin: 0 auto;">
-<div style="text-align: center;">*Figure 5*: Comparison of sequence packing strategies. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook).</div> 
+<p style="text-align: center;">*Figure 5*: Comparison of sequence packing strategies. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook).</p> 
 
 ## learning rate and epochs
 
@@ -385,7 +385,7 @@ In RLVR (**RL with verifiable rewards**), popularised by DeepSeek-R1, *verifiers
 Despite policy optimization algorithms are commonly on-policy, like GRPO, in practice, to maximize throughput, they may actually be slightly off-policy. For example, in GRPO, without freezing the policy, generating multiple rollout batches and doing optimizer updates sequentially makes only the first batch on-policy and all subsequent batches off-policy; this is known as **in-flight updates**.
 
 <img src="/public/training/in_flight_updates.png" alt="Pipeline RL with in-flight weight updates" style="width: 75%; display: block; margin: 0 auto;">
-<div style="text-align: center;">*Figure 6*: Comparison of conventional RL and in-flight updating. From [Pipeline RL paper](https://arxiv.org/abs/2509.19128).</div>
+<p style="text-align: center;">*Figure 6*: Comparison of conventional RL and in-flight updating. From [Pipeline RL paper](https://arxiv.org/abs/2509.19128).</p>
 
 ### RLVR on hybrid reasoning models
 
