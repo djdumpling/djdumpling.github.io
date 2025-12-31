@@ -73,7 +73,7 @@ HuggingFace ran ablations using RoPE, RNoPE (removing positional encoding every 
 
 ## attention for long contexts
 
-![Attention patterns comparison showing causal masking, chunked attention, sliding window attention, RoPE ABF, and DCA](/public/training/attention.png)
+<img src="/public/training/attention.png" alt="Attention patterns comparison showing causal masking, chunked attention, sliding window attention, RoPE ABF, and DCA" style="width: 60%;">
 *Figure 1*: five common types of attention. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
 
 An alternative to adjusting positional encodings for long contexts is specifying the strength of which tokens can attend to one another. 
@@ -86,7 +86,7 @@ An alternative to adjusting positional encodings for long contexts is specifying
 
 MoEs (mixture of experts), analogous to our brain activating different parts of our brain, provide an alternative to dense models due to only certain "experts" being used at inference time, saving lots of compute. The MoE works by replacing the feed forward layer with multiple MLPs (experts) and add a learnable router before the MLPs to select the experts.
 
-![MoE architecture](/public/training/moe.png)
+<img src="/public/training/moe.png" alt="MoE architecture" style="width: 60%;">
 *Figure 2*: Comparison of dense architecture and MoE architecture. From [Sebastian Raschka](https://sebastianraschka.com/).
 
 In general, for fixed number and size of active experts, increasing the total number of experts improves loss, and [high sparsity improves performance](https://arxiv.org/abs/2507.20534) and [benefits more from increasing compute](https://arxiv.org/abs/2507.17702). Recent models are much more sparse, with over 100 experts and around 10 active per token.
