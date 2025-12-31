@@ -159,11 +159,13 @@ Choosing optimizers and tuning hyperparameters is notoriously time-consuming. Wh
 
 Despite being invented over 10 years ago, AdamW still stands the test of time. Adam (adaptive momentum estimation) updates weights individually based on an exponential weighted average of gradients $g_t$ and an exponential weighted average of squared gradients $g_t^2$, along with weight decay (the "W"): 
 
-$$\begin{align*}
+$$
+\begin{align*}
 \theta &\leftarrow (1-\alpha \lambda)\theta - \alpha \frac{\hat{m}_t}{\sqrt{v_t}+\epsilon} \\
 \hat{m}_t &= \frac{m_t}{1-\beta_1^t}, \quad m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t \\
 \hat{v}_t &= \frac{v_t}{1-\beta_2^t}, \quad v_t = \beta_2 v_{t-1} + (1-\beta_2) g_t^2
-\end{align*}$$
+\end{align*}
+$$
 
 Even for modern LLMs, the hyperparameters remain largely unchanged: weight decay factor $\lambda=0.1$ or $\lambda=0.01$, $\beta_1=0.9$, and $\beta_2=0.95$. 
 
@@ -171,12 +173,14 @@ Even for modern LLMs, the hyperparameters remain largely unchanged: weight decay
 
 Unlike adamW which updates per-parameter, muon treats the weight matrix as a singular object and updates based on:
 
-$$\begin{align*}
+$$
+\begin{align*}
 g_t &\leftarrow \nabla_\theta \mathcal{L}_t(\theta_{t-1}) \\
 B_t &\leftarrow \mu B_{t-1} + G_t \\
 O_t &\leftarrow \text{NewtonSchulz5}(B_t) \\
 \theta_t &\leftarrow \theta_{t-1} - \eta O_t
-\end{align*}$$
+\end{align*}
+$$
 
 where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) describes the algebra of it in more detail, but we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because $f \circ f \circ \cdots f(x)$ converges to the sign function. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
 
