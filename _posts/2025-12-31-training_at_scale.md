@@ -189,6 +189,10 @@ $$
 
 where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) describes the algebra of it in more detail, but we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because $f \circ f \circ \cdots f(x)$ converges to the sign function. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
 
+But since muon operates at the matrix level, applying NewtonSchulz requires access t othe full gradient tensor. One method uses an *overlapping round-robin scheme* where each rank is responsible for gathering all gradient matrices corresponding to its index and applying muon locally. Since FSDP expects sharded gradients/updates, and every rank has its shard of the muon-updated gradient, then the optimizer step can be proceed normally. However, this issues lots of overlapping collectives across many matrices which breaks at scale.
+
+The alternative that Prime adapts is based on **all-to-all collectives** which does bulk permutation so that each rank temporarily wons full gradients for its matrices, runs muon, then bulk permutes them back. This may require padding since many tensors are packed into contigous buffers which can change the size that's expected. However, this requires fewer collectives and scale betters. 
+
 ## learning rates 
 
 Learning rates have their own life cycle: they warmup (typically 1%-5% of training steps for short trainings, but large labs fix the warmup steps) from zero to avoid chaos, then anneal after settling into a good minimum. [Cosine annealing](https://arxiv.org/abs/1608.03983) was the go-to scheduler, but it's also inflexible due to the cosine period needing to match the total training duration. Alternatives include [warmup-stable-decay (WSD)](https://arxiv.org/abs/2404.06395) and [multi-step](https://arxiv.org/abs/2401.02954); in the last x% of tokens, the former linearly decays the learning rate whereas multi-step does discrete drops. for WSD, typically 10-20% is allocated for the decay phase, matching cosine annealing; in multi-step, 80/10/10 also matches cosine annealing while 70/15/15 and 60/20/20 can outperform it. Deepseek-v3 used cosine annealing between the decay drops and added a constant phase before the final sharp step.
@@ -277,13 +281,17 @@ Testing again, they found smaller but still prominent drops in throughput. After
 
 ### noisy loss
 
-However, the loss curve looked more noisy. They found the issue with the dataloader because it reads sequences sequentially for each document. Without **shuffling of sequences**, batches are no longer representative of the overall data distribution, increasing gradient variance. Also, a long file (e.g. code) would supply many consecutive sequences that would also spike loss. To fix, they reshuffled the tokenized sequences offline; an alternative was changing the dataloader to do random access, which has both higher memory usage and slower runtime.
+However, the loss curve for SmolLM3 looked more noisy. They found the issue with the dataloader because it reads sequences sequentially for each document. Without **shuffling of sequences**, batches are no longer representative of the overall data distribution, increasing gradient variance. Also, a long file (e.g. code) would supply many consecutive sequences that would also spike loss. To fix, they reshuffled the tokenized sequences offline; an alternative was changing the dataloader to do random access, which has both higher memory usage and slower runtime.
 
-### unsatisfactory performance
+### tensor parallelism
 
 After two days and 1T tokens, evals showed that with a similar recipe, SmolLM2 (1.7B) was more performant at the same stage in training as SmolLM3 was. The team found the issue with **tensor parallelism**: the weights of SmolLM2 fit on a single GPU, whereas for SmolLM3, they had to be shared across 2 GPUs.
 
 Further, the two TP ranks were initialised with the same random seed instead of different seeds, which causes similar activations/gradients, a loss of diversity of features, and lower convergence.
+
+### multi-client orchestator
+
+Inference throughput should scale linearly with the number of nodes used. However, Prime found that the standard multi-node data-parallel strategy provided by vLLM didn't deliver this because as nodes increased, throughput plateaued. They abstracted the multi-client orchestrator so that each inference mode is deployed on an independent server (runs its own vLLM engine and scheduler, manages its own KV cache and batches its own reqeusts), and the orchestrator maintains one client per node (avoids single-shared queue bottleneck). Groups rollout requests are distributed across clients according to round-robin scheduling, which keeps utilization balanced.
 
 ### the usual suspects
 
@@ -337,10 +345,10 @@ The HuggingFace team found issues in generalising single-turn reasoning data to 
 
 **Sequence packing** (TRL uses "best-fit decreasing" strategy) is another choice that improves training efficiency. The idea is similar to intra-document masking where sequences are packed into a batch so as to not waste padding compute via excessive padding tokens, but with the additional constraint of minimizing truncation of documents across batch boundaries. 
 
-Despite yielding up to a 33x tokens/batch/optimization step, for a fixed token budget, packing alters training dynamics since the more data means fewer gradient updates. This especially hurts small datasets where each sample matters more. An effective batch size of 128 hurt evals like IFEval by up to 10%; for effective batch sizes larger than 32, there was an average drop in performance (for SmolLM3 and the dataset). But for large datasets, packing is *almost always beneficial*.
-
 <img src="/public/training/sequence_packing.png" alt="Sequence packing comparison" style="width: 75%; display: block; margin: 0 auto;">
 *Figure 5*: Comparison of sequence packing strategies. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
+
+Despite yielding up to a 33x tokens/batch/optimization step, for a fixed token budget, packing alters training dynamics since the more data means fewer gradient updates. This especially hurts small datasets where each sample matters more. An effective batch size of 128 hurt evals like IFEval by up to 10%; for effective batch sizes larger than 32, there was an average drop in performance (for SmolLM3 and the dataset). But for large datasets, packing is *almost always beneficial*.
 
 ## learning rate and epochs
 
@@ -387,6 +395,8 @@ Despite policy optimization algorithms are commonly on-policy, like GRPO, in pra
 <img src="/public/training/in_flight_updates.png" alt="Pipeline RL with in-flight weight updates" style="width: 75%; display: block; margin: 0 auto;">
 *Figure 6*: Comparison of conventional RL and in-flight updating. From [Pipeline RL paper](https://arxiv.org/abs/2509.19128).
 
+In the context of Intellect-3, which uses an CPU orchestrator between two clusters (one for training and one for inference), the orchestrator continuously polls the trainer to update the inference pool once a new policy is available, and the inference pool temporarily halts generation to update the weights, then continues with rollouts. In this way, a long rollout could be generated by multiple policies, but they limit this by a `max_off_policy_steps` parameter to limit policy drift.
+
 ### RLVR on hybrid reasoning models
 
 The goal of RLVR on hybrid reasoning models to improve reasoning capabilities without extending the token count too radically. For `/no_think`, naively applying GRPO can lead to **reward hacking** since the model begins to emit longer CoT (shifting towards `/think`); as such, both reward and token length increase. SmolLM3 observed this and found that RLVRed `/no_think` traces showed [cognitive behaviors](https://arxiv.org/abs/2503.01307) like "Wait, ..." associated with reasoning models. 
@@ -394,6 +404,10 @@ The goal of RLVR on hybrid reasoning models to improve reasoning capabilities wi
 This can be mitigated via an [overlong completion penalty](https://arxiv.org/abs/2503.14476) which penalizes completions over a certain length, which is a function parametrized by a soft punishment threshold and a hard punishment threshold/max completion length. Penalty increases from the soft to the hard threshold, and past the latter, the punishment is -1 (effective reward = 0).
 
 For `\no_think`, SmolLM3 decided on a length penalty in the range of 2.5k-3k that balanced improvement in performance and increase in response length. However, doing RL *jointly* on hybrid reasoning models is difficult since it requires separate length penalties, whose interplay can cause instability. This is also why labs release `instruct` and `reasoning` variants separately.
+
+### online data filtering
+
+To RL effectively, **curriculm learning** is another effective way which gradually exposes the model to progressively diffifcult problems. First, problems are sorted into difficulty pools (such as easy, medium, and hard) based on the problem's observed solve rate. Then, during each stage, they maintain a balanced curriculm that vaoids training with trivially easy or overally difficult problems which give meaningful learning signal (and also helps maintain gradients in GRPO)
 
 ### alternatives to RL
 
