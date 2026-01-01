@@ -317,6 +317,16 @@ These evals test the following:
 
 To prevent overfitting, evals that encapsulate robustness or adaptability, like GSMPlus which perturbs problems from GSM8k, are also included. Another way is using **interval evals** or **vibe evaluations/arenas**, such as manually probing the model's behavior. Other tips include using small subsets to accelerate evals (especially if there's correlation with a larger eval), fixing the LLM-as-judge model (if the eval requires it), treat anything used during ablations as validation, use `avg@k` accuracy, and try not to (don't) benchmax!
 
+## data
+
+### intellect-3
+
+Integrating with the Environments Hub, Prime trains on a diverse and challenging mix of environments designed to improve coding and reasoning capabilities. For math, they design an envionrment with long CoT reasoning in mind, consisting of 21.2K challenging math problems from Skywork-OR1, Acereason-Math, DAPO, and ORZ-Hard, all of which are curated datasets derived from AIME, NuminaMath, Tulu3 math, and others which test difficult math questions from multiple choice to proofs to those involving figures. Even using verifiers, there were a non-tirival amount of false negatives, so they additionaly use `opencompass/CompassVerifier-7B` as a LLM-judge verifier. For science (mainly physics, chemistry, and biology), they filter 29.3K challening problems from [MegaScience](https://arxiv.org/abs/2507.16812) while also using LLM-judge verification and standard math verifiers. For logic (games like Sduoku or Minesweeper), 11.6 problems and verifiers were adapted from [SynLogic](https://arxiv.org/abs/2505.19641).
+
+For code, they primarily use their [Synthetic-2 dataset](https://huggingface.co/datasets/PrimeIntellect/SYNTHETIC-2) along with Prime Sandboxes to verify solutions. They also develop two SWE environments that supports scaffolding for common formats like [R2E-Gym](https://arxiv.org/abs/2504.07164), [SWE-smith](https://arxiv.org/abs/2504.21798), and [Multi-SWE-bench](https://arxiv.org/abs/2504.02605) to fix issues within a Github project when equipped to Bash commands and edit tooling. Also, the maximum number of turns for the agent is set at 200.
+
+Prime also focuses on its deep research capabilities via their web serach environment provides the model with a set of search tools. The environment tasks the model with answering questions from the dataset using tools and is rewarded either 1 or 0 using [z-AI's DeepDive dataset](https://huggingface.co/datasets/zai-org/DeepDive), with 1K samples for SFT trajectory generation and 2.2 samples for RL. When tested in `Qwen/Qwen3-4B-Instruct-2507`, 26 steps of SFT with bath size of 34 followed by 120 steps of RL at a group size of 16 and bathc size of 512 was enough to reach mean reward of 0.7.
+
 ## mid-training and reasoning
 
 **Mid-training** is the intermediary step between pre-training and post-training where the base model is trained further on a large amount of domain-specific tokens, especially shaping the model to focus on common core skills like coding or reasoning. Often-times, the decision to mid-train is only made *after* initial SFT experiments are run because they may reveal performance gaps that indicate the need to mid-train on certain domains. But if the goal is to elicit shallow capabilities like style or conversation, the compute is better spent in post-training.
@@ -407,7 +417,7 @@ For `\no_think`, SmolLM3 decided on a length penalty in the range of 2.5k-3k tha
 
 ### online data filtering
 
-To RL effectively, **curriculm learning** is another effective way which gradually exposes the model to progressively diffifcult problems. First, problems are sorted into difficulty pools (such as easy, medium, and hard) based on the problem's observed solve rate. Then, during each stage, they maintain a balanced curriculm that vaoids training with trivially easy or overally difficult problems which give meaningful learning signal (and also helps maintain gradients in GRPO)
+To RL effectively, **curriculm learning** is another effective way which gradually exposes the model to progressively diffifcult problems. First, problems are sorted into difficulty pools (such as easy, medium, and hard) based on the problem's observed solve rate; for math and coding, this was done via querying `Qwen/Qwen3-4B-Thinking-2507` over eight generations per problem while for science and logic, they queried the same model 16 times. Then, during each stage, they maintain a balanced curriculm that avoids training with trivially easy or overally difficult problems which give meaningful learning signal (and also helps maintain gradients in GRPO)
 
 ### alternatives to RL
 
