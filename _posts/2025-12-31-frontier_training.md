@@ -257,6 +257,12 @@ HuggingFace's goal was to build a multi-lingual model that also excels on math a
 
 For new stages (using a checkpoint at around 7T out of the total 11T tokens), they use a 40/60 split between the baseline mixture and the new dataset. SmolLM3 has three stages: 8T tokens @ 4k context for base training, 2T tokens @ 4k context for high-quality injection, and 1.1T tokens @4k context a reasoning/Q&A stage.
 
+### hermes 4
+
+Using data from [DCLM](https://arxiv.org/abs/2406.11794) and FineWeb Nous first domes semantic deduplication using ebmeddings at a cosine similarity of 0.7, and then use an LLM-as-judge to filter out incomplete or ill-formatted messages. Then, they processes pre-training data through **DataForge**, a graph-based synthetic data generator, which allows for large and complex structures. By taking a random walk through a directed acyclic graph where nodes implement a mapping from struct $\to$ struct such that in there is an edge from node $A$ to node $B$, the postconditions guaranteed by $A$ must satisfy the preconditions of $B$. QA pairs are generated using this workflow with intermediary transformations into other mediums (e.g. a wikipedia article into a rap song), question generation and then questions/answers annotations using an LLM-as-judge to grade the instruction and response. Also, to find a covering set of data-scarce domains of special interest, they recursively (*depth-first-search*) generate a taxonomy of subdomains where the leaves are prompts and the LLM enumerates $n$ subdomains to form a partition.
+
+It's a bit unclear whether the data included was used in pre-training and post-training, so please refer to the data section in the post-training section for more.
+
 ## mid-training
 
 Some recipes include an additional  **long context stage**; for example, [Qwen3](https://arxiv.org/abs/2505.09388) first trained on 30T tokens at 4k context, then a reasoning stage with 5T higher-quality tokens mainly on STEM and coding, and finally a long context stage at 32k context length.
@@ -321,7 +327,7 @@ To prevent overfitting, evals that encapsulate robustness or adaptability, like 
 
 ## data
 
-### intellect-3
+### intellect 3
 
 It's first worth mentioning that Intellect-3 is a 106B parameter MoE (12B activate) post-trained on top of GLM-4.5-Air base model from Z.ai, and that they have their own post-training stack including `prime-rl`, an open frameowkr for large-scale asynchronous RL, `verifiers` library for training and evals from their Environments Hub, sandbox code execution and compute orchestration.
 
@@ -330,6 +336,18 @@ Integrating with the Environments Hub, Prime trains on a diverse and challenging
 For code, they primarily use their [Synthetic-2 dataset](https://huggingface.co/datasets/PrimeIntellect/SYNTHETIC-2) along with Prime Sandboxes to verify solutions. They also develop two SWE environments that supports scaffolding for common formats like [R2E-Gym](https://arxiv.org/abs/2504.07164), [SWE-smith](https://arxiv.org/abs/2504.21798), and [Multi-SWE-bench](https://arxiv.org/abs/2504.02605) to fix issues within a Github project when equipped to Bash commands and edit tooling. Also, the maximum number of turns for the agent is set at 200.
 
 Prime also focuses on its deep research capabilities via their web serach environment provides the model with a set of search tools. The environment tasks the model with answering questions from the dataset using tools and is rewarded either 1 or 0 using [z-AI's DeepDive dataset](https://huggingface.co/datasets/zai-org/DeepDive), with 1K samples for SFT trajectory generation and 2.2 samples for RL. When tested in `Qwen/Qwen3-4B-Instruct-2507`, 26 steps of SFT with bath size of 34 followed by 120 steps of RL at a group size of 16 and bathc size of 512 was enough to reach mean reward of 0.7.
+
+### hermes 4
+
+THey use 300k prompts, mostly STEM and coding from [WebInstruct-Verified](https://huggingface.co/datasets/TIGER-Lab/WebInstruct-verified), [rSTAR-Coder](https://arxiv.org/abs/2505.21297), and [DeepMath-103k](https://arxiv.org/abs/2504.11456) and apply deduplicating and filtering for prompts with >2k characters.
+
+Nous rejection samples against ~1k task-specific verifiers using [Atropos](https://nousresearch.com/introducing-atropos/). Some environments used to generate the dataset include
+- **Answer Format Training**: rewards succintly-presented final answers, like $\mathtt{\backslash boxed\{\}}$ in LaTeX, but there are over 150 output formats sampled. The environment also enforces $\mathtt{<think>}$ and $\mathtt{</think>}$ delimiters.
+- **Instruction Following**: leverages [RLVR-IFEval](https://huggingface.co/datasets/allenai/RLVR-IFeval) for sets of verifiable tasks with constraint instructions like "Every $n^\text{th}$ word of your response must be in French."
+- **Schema Adherence**: facilitates generation (producing a valid JSON object from natural language prompt and a schema) and editing (identifying and correcting validation errors within a malformed JSON object)
+- **Tool Use**: facilitates agentic behavior by training the model to generate reasoning and produce tool calls via the $\mathtt{<tool\_call>}$ token.
+
+
 
 ## mid-training and reasoning
 
@@ -347,6 +365,8 @@ For training, there are other considerations as well: full finetuning vs more pa
 
 In Intellect-3, Prime splits SFT into two stages: **general reasoning SFT** and **agentic SFT**. In the first, they use datasets consisting on math, code , science, tooling, chat, and instruction splits from [Nemotron's post-training dataset](https://huggingface.co/datasets/nvidia/Nemotron-Post-Training-Dataset-v1) and [AM-DeepSeek-R1-0528-Distilled](https://huggingface.co/datasets/a-m-team/AM-DeepSeek-R1-0528-Distilled) for a total of 9.9B tokens. In the second stage, they target agentic behavior, tool use, and long-horizon control (gpt-oss-120b does also targets agentic behavior and tool use), using a mix of open-source agentic datasets like [SWE-Swiss](https://github.com/zhenyuhe00/SWE-Swiss) and synthetically-generate datasets from the Environments Hub using DeepSeek-R1. Besides serving the purpose of fine-tuning for agentic behavior, this stage also has the effect of pushing the model toward longer effective context lengths. Using **context parallelism**, they scaled from a 65K context window to 98K. 
 
+In Hermes 4, they also do two stages of SFT, both around reasoning. They noted that despite training on sequences at most 16k tokens in length, the reasoning lengths frequently exceed 41k tokens on reasoning tasks. So, they do a second stage to teach the model to genrate the closing $\mathtt{</think>}$ tags at 30k tokens, their budget. This insertion at a fixed token count allows the model to learn a counting behavior ("when reach $N$ tokens), stop" while ensuring that the model's own distribution doesn't change significantly. This also avoids the problem of model collapse when recursive trainign on full, self-generated outputs leads to distribution narrowing and quality degradation.
+
 ## chat template
 
 A few important considerations for designing/picking a good chat template include **system role customizability**, **tool calling**, **reasoning**, and **compatibility with inference engines** like vLLM or SGLang. Qwen3 and GPT-OSS satisfy all criteria, and Qwen3 is designed for hybrid reasoning. 
@@ -357,6 +377,12 @@ While deriving inspiration from the Qwen3 template, Intellect-3 always reasons (
 
 gpt-oss-120b uses the harmony chat template, which introduces "channels" that determine the visibility of each message. For example, `final` for answers shown to the user, `commentary` for tool calling, and `analysis` for CoT tokens. This allows the model to interleave tool calls with CoT.
 
+Hermes 4 adapts Llama 3's chat template by changing the assistant to a first-person identifier after identifying the sensitivity to the token used for the assistant's turn:
+$$
+\mathtt{<\lvert start\_header\_id\rvert>assistant<\lvert end\_header\_id\rvert>} \longrightarrow \mathtt{<\lvert start\_header\_id\rvert>me<\lvert end\_header\_id\rvert>}
+$$
+This results in markedly different behaviors, which is explored more in "behaviors and latent capabilities" subsection of "behaviors and safety" section.
+
 ## capabilities
 
 The HuggingFace team found issues in generalising single-turn reasoning data to multi-turn data, stemming from the difficulty in differentiating `/think` and `/no_think` tags between turns. So, they constructed a new dataset, IFThink, using `Qwen3-32B` that **augmented single-turn instructions into multi-turn exchanges** with verifiable instructions and reasoning traces; this dramatically improved multi-turn reasoning.
@@ -365,10 +391,12 @@ The HuggingFace team found issues in generalising single-turn reasoning data to 
 
 ## sequence packing
 
-**Sequence packing** (TRL uses "best-fit decreasing" strategy) is another choice that improves training efficiency. The idea is similar to intra-document masking where sequences are packed into a batch so as to not waste padding compute via excessive padding tokens, but with the additional constraint of minimizing truncation of documents across batch boundaries. 
+**Sequence packing** is another choice that improves training efficiency. The idea is similar to intra-document masking where sequences are packed into a batch so as to not waste padding compute via excessive padding tokens, but with the additional constraint of minimizing truncation of documents across batch boundaries. 
 
 <img src="/public/training/sequence_packing.png" alt="Sequence packing comparison" style="width: 75%; display: block; margin: 0 auto;">
 *Figure 5*: Comparison of sequence packing strategies. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
+
+In the image, the last packing method uses the **best-fit decreasing** (implemented in TRL), where each sequence is placd in the batch that minimizes the remaining space after insertion. Another method, which Hermes-4 uses, is **first-fit decreasing**, which places a sequence in the first batch that has enough remaining space, which achieves $>99.9\%$ bathc efficiency.
 
 Despite yielding up to a 33x tokens/batch/optimization step, for a fixed token budget, packing alters training dynamics since the more data means fewer gradient updates. This especially hurts small datasets where each sample matters more. An effective batch size of 128 hurt evals like IFEval by up to 10%; for effective batch sizes larger than 32, there was an average drop in performance (for SmolLM3 and the dataset). But for large datasets, packing is *almost always beneficial*.
 
@@ -453,6 +481,8 @@ Given these aforementioned algorithms, choosing between them can be hard; Huggin
 
 And for DPO (semi-online and online), it is also possible to match GRPO using far less compute. Specifically, they found that semi-online DPO (with syncing between the trainer and the generator every 100 steps) was generally the best compared to semi-online DPO with sync every 10 steps, online DPO, and GRPO.
 
+# behaviors and safety
+
 ## safety testing and mitigation
 
 During post-training, they perform an additional stage of RL to reward answers that comply with OpenAI's policy against unsafe prompts.Because all of these models are have open model weights, then one worry is that malicious parties can enhance the model's harmful capabilities. By running Preparedness evaluations on gpt-oss-120b, OpenAI confirmed that the model doesn't achieve threshold for high capability in biological/chemical capability, cyber capability, and AI self-improvement. 
@@ -469,3 +499,11 @@ OpenAI also evaluted safety performance using other indicators:
 3. **Instruction Heirarchy**: it follows system > developer > user > assistant > tool. They post-trained the moedl using system, developer, and user messages, sometimes conflicting, and the model must learn to chose the instruction higher in the hierarchy. This includes testing system prompt extraction via an user message and prompt injection hijacking. For PII protection, performance is on par with `o4-mini`, but for message conflict, gpt-oss-120b underperforms `o4-mini` by ~15%.
 4. **Hallucinations and CoT**: reasoning model's CoT can be very helpful for detecting misbehavior, and that models could learn to hide their thinking while misbehaving when pressured against having "bad thoughts." To measure hallucinations, they uses two datasets of either fact-seeking questions or publicly avilable facts about people and consider accuracy and hallucination rate. Here, hallucination rate is not just defined as 1 - accuracy, since the model can also output answers like "I don't know." Performance is a bit worse than `o4-mini`, which is expected given model size.
 5. **Fairness and Bias**: they also evaluate gpt-oss-120b on the [BBQ evaluation](https://arxiv.org/abs/2110.08193) which tests social bias against people belonging to protected classes along nine social dimensions. Performance is on par with `o4-mini`.
+
+## behaviors and latent capabilities
+
+Continuing from the chat template section, Nous' decision to change the token used from the assistant's turn from $\mathtt{assistant}$ to $\mathtt{me}$ enabled Hermes 4 to adopt a first-person, peer-like persona. Hermes 4 generates responses with fewer meta-disclaimers and more consistent voice embodiment, resulting in **higher behaviorial plasticity** that is not as common in large models.
+
+Simarily, Hermes 4 demonstrates comparatively greater **contextual fidelity** over **policy rigidity**. Most other large models will follow policy compliance even when faced with fictional or controlled prompts (such as issuing disclaimers or reformulated responses to align with safety constraints), but Hermes 4 interprets fictional prompts more as role-play and generates in-character responses. This also means that Hermes 4 has a lower resfual rate; on their internal RefusalBench, they found that Hermes 4 (reasoning) ranked highest (lowest refusal rate) among all tested models, whereas `gpt-oss-120b` and `gpt-oss-20b`, perhaps unsurprisingly, had the lowest scores (highest refusal rate). Also, This level of embodied personas extends even to political analysis, where the model produces reasoning balancing factual recall with nuanced framing, and less of policy-driven hedging common to other large models.
+
+Excessive sycophancy is an undesired behavorial trait, so most models apply an *anti-sycophancy* system prompt to adjust surface-level politeness while leaving underlying reasoning unchanged. When implemented in Hermes 4, Nous observed a deeper shift: CoT traces reflect the aim to **steer user interaction away from inference**. This sometimes introduces embodied or emphatic language.
