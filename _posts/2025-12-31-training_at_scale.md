@@ -1,6 +1,6 @@
 ---
 title: "[WIP] frontier model training methodologies"
-date: 2025-12-31
+date: 2026-01-01
 ---
 
 How do labs train a multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Allen Institute's [Olmo 3](https://arxiv.org/abs/2512.13961), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), and OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925). This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with a emphasis on training methodology over infrastructure.
