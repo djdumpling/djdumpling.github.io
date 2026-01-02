@@ -3,9 +3,9 @@ title: "[WIP] frontier model training methodologies"
 date: 2025-12-31
 ---
 
-How do labs train a multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Allen Institute's [Olmo 3](https://arxiv.org/abs/2512.13961), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/pdf/2508.18255), and OpenAI's [GPT-OSS-120B](https://arxiv.org/pdf/2508.10925). This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with a stronger emphasis on training methodology instead of infrastructure.
+How do labs train a multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Allen Institute's [Olmo 3](https://arxiv.org/abs/2512.13961), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), and OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925). This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with a stronger emphasis on training methodology instead of infrastructure.
 
-These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is supplemented with notes from other reports (in progress). Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
+These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is supplemented with notes from other reports (done with Intellect 3, currently reading through gpt-oss-120b). Also, these notes have not been thoroughly reviewed. Any errors below are my own responsibility.
 
 ## (extremely broad) general practices
 
@@ -20,19 +20,19 @@ These notes are largely structured off of Hugging Face's [SmolLM3 report](https:
 
 # architecture and set-up
 
-Model families like DeepSeek, MiniMax, Kimi, OLMo, and SmolLM have vastly different architectures (dense vs MoE), attention mechanisms (MHA vs MLA vs GQA), position encodings (RoPE, partial RoPE, NoPE), among many, many, others.
+Model families like DeepSeek, gpt-oss-120b, Kimi, OLMo, and SmolLM have vastly different architectures (dense vs MoE), attention mechanisms (MHA vs MLA vs GQA), position encodings (RoPE, partial RoPE, NoPE), among many, many, others.
 
-| | DeepSeek | MiniMax | Kimi | OLMo | SmolLM |
+| | DeepSeek | gpt-oss-120b | Kimi | OLMo | SmolLM |
 |--|----------|---------|-------|------|--------|
-| Attention | X | X | X | X | GQA (4 groups)|
+| Parameter Count | X | 116.83B | X | X | 3B|
+| Attention | X | GQA (8 groups) | X | X | GQA (4 groups)|
 | Embedding Sharing | X | X | X | X | tied|
-| Positional Embedding| X | X | X | X | RNoPE|
+| Positional Embedding| X | RoPE + YARN| X | X | RNoPE + YARN|
 | Z-Loss | X | X | X | X | No|
-| Architecture | X | X | X | X | dense|
-| Tokenizer | X | X | X | X | Llama3|
+| Architecture | X | MoE | X | X | dense|
+| Tokenizer | X | [o200k_harmony](https://github.com/openai/tiktoken) | X | X | Llama3|
 | Optimizer | X | X | X | X | AdamW|
 | Scheduler| X | X | X | X | WSD (10%)|
-| Learning Rate| X | X | X | X | 2e-4|
 
 Between choosing architecture, HuggingFace suggests following a decision tree such that if one of these is true, then to choose a dense architecture:
 - memory-constrained (since MoEs must have all experts loaded)
@@ -65,7 +65,7 @@ Without positional encoding, transformers have no sense of word order, akin to t
 
 The most commonly used technique is [rotary position embedding (RoPE)](https://arxiv.org/abs/2104.09864), which encodes relative position as rotation angles. Based on the dimensionality of the query/key vector, RoPE splits it into pairs (since they rotate in 2D space) and rotates depending on the absolute position of a token and a base frequency. During attention, the dot product between their rotated positions directly encodes their relative distance via the phase difference in their rotation angles, where tokens $x$ positions apart always maintain the same angular relationship. 
 
-During pretraining, models are trained on shorter context lengths (similar ideas to document masking, and quadratic attention is expensive) to learn short range correlation between words. But as sequence length grows, the rotation angles grows via $\theta= \text{position} \times \frac1{\text{base}^{\frac{k}{\text{dim}/2}}}$. This can be fixed by increasing the base frequency as the sequence length increases using methods like [ABF](https://arxiv.org/abs/2309.16039) or [YaRN](https://arxiv.org/abs/2309.00071), which applies a more granular interpolation of frequencies on different components and includes other techniques like dynamic attention scaling and temperature adjustment. For extremely long contexts, YaRN does best.
+During pretraining, models are trained on shorter context lengths (similar ideas to document masking, and quadratic attention is expensive) to learn short range correlation between words. But as sequence length grows, the rotation angles grows via $\theta= \text{position} \times \frac1{\text{base}^{\frac{k}{\text{dim}/2}}}$. This can be fixed by increasing the base frequency as the sequence length increases using methods like [ABF](https://arxiv.org/abs/2309.16039) or [YaRN](https://arxiv.org/abs/2309.00071), which applies a more granular interpolation of frequencies on different components and includes other techniques like dynamic attention scaling and temperature adjustment. For extremely long contexts, YaRN does best, and in gpt-oss-120b, it was used to extend the context length of dense layers up to 131k tokens.
 
 More recently, with the emphasis on long contexts, [NoPE](https://arxiv.org/abs/2305.19466) (no position embedding) and [RNoPE](https://arxiv.org/abs/2501.18795), a hybrid method, have emerged. NoPE uses only causal masking and attention patterns, so it doesn't bump into the issue of extrapolating beyond training lengths but shows weaker performance on short context reasoning and knowledge-based tasks. RNoPE alternates applying RoPE and NoPE on attention blocks, where RoPE handles local context and NoPE helps with longer-range information retrieval. Another idea is Partial RoPE, which applies RoPE/NoPE within the same layer.
 
@@ -138,7 +138,7 @@ Similar to $z$-loss, QK-norm helps prevent attention logits from becoming too la
 ## other design considerations
 
 1. **Parameter initialization**: either normalization initialization ($\mu=0$, $\sigma=0.02, 0.006$) with clipping (often with $\pm 2-3 \sigma$) or a scheme like $\mu\text{P}$ ([maximal update parametrization](https://arxiv.org/abs/2011.14522)) which dictates how weights and learning rates should scale with width so that training dynamics stay comparable.
-2. **Activation Function**: SwiGLU is what most modern LLMs use, not ReLU or GeLU. Some exceptions are Gemma2 using GeGLU and nvidia using $\text{relu}^2$. 
+2. **Activation Function**: SwiGLU is what most modern LLMs use, not ReLU or GeLU; for example, gpt-oss-120b uses gated SwiGLU. Some exceptions are Gemma2 using GeGLU and nvidia using $\text{relu}^2$. 
 3. **Width vs Height**: deeper models tend to outperform equally sized wider ones on language modeling and compositional tasks. In smaller models, this is more pronounced, but larger models make use of wider models for faster inference due to modern architectures supporting better parallelism. 
 
 # tokenizer
@@ -232,6 +232,8 @@ Even with the perfect architecture, a model's performance is still heavily depen
 There already exist large corpora of pre-training datasets like [FineWeb2](https://arxiv.org/abs/2506.20920) and [The Pile](https://pile.eleuther.ai/). However, there are still a plethora of information gaps, so recent models additionally rely on specialized pretraining datasets for domains like math and coding. 
 
 One consideration in **data quality**. Of course, training of the highest quality data possible is preferable. But for a training budget of $X$ tokens, because high quality data is limited, only filtering for it would lead to repeated data, which [can be harmful](https://arxiv.org/abs/2305.16264). So, an ideal mixture includes both higher and lower quality data.
+
+Another consideration is **model safety**. For gpt-oss-120b, OpenAI takes by filtering the data for harmful content in pre-training, with an emphasis on harzardous biosecurity knowledge. They use CBRN (chemical, biological ,radiological, and nuclear) pre-training filters that were used in GPT-4o.
 
 ## multi-stage training
 
@@ -343,7 +345,7 @@ Dataset curation for SFT is important; datasets might seem great on paper, but m
 
 For training, there are other considerations as well: full finetuning vs more parameter efficient methods like LoRA or QLoRA, specialized kernels like FlashAttention or the likes of SonicMoE for more efficient compute usage, masking the loss for only assistant tokens, the type of parallelism needed, learning rate tuning, and sequence length tuning to match the distribution of data to speed up training (more useful for larger datasets).
 
-In Intellect-3, Prime splits SFT into two stages: **general reasoning SFT** and **agentic SFT**. In the first, they use datasets consisting on math, code , science, tooling, chat, and instruction splits from [Nemotron's post-training dataset](https://huggingface.co/datasets/nvidia/Nemotron-Post-Training-Dataset-v1) and [AM-DeepSeek-R1-0528-Distilled](https://huggingface.co/datasets/a-m-team/AM-DeepSeek-R1-0528-Distilled) for a total of 9.9B tokens. In the second stage, they target agentic behavior, tool use, and long-horizon control, using a mix of open-source agentic datasets like [SWE-Swiss](https://github.com/zhenyuhe00/SWE-Swiss) and synthetically-generate datasets from the Environments Hub using DeepSeek-R1. Besides serving the purpose of fine-tuning for agentic behavior, this stage also has the effect of pushing the model toward longer effective context lengths. Using **context parallelism**, they scaled from a 65K context window to 98K. 
+In Intellect-3, Prime splits SFT into two stages: **general reasoning SFT** and **agentic SFT**. In the first, they use datasets consisting on math, code , science, tooling, chat, and instruction splits from [Nemotron's post-training dataset](https://huggingface.co/datasets/nvidia/Nemotron-Post-Training-Dataset-v1) and [AM-DeepSeek-R1-0528-Distilled](https://huggingface.co/datasets/a-m-team/AM-DeepSeek-R1-0528-Distilled) for a total of 9.9B tokens. In the second stage, they target agentic behavior, tool use, and long-horizon control (gpt-oss-120b does also targets agentic behavior and tool use), using a mix of open-source agentic datasets like [SWE-Swiss](https://github.com/zhenyuhe00/SWE-Swiss) and synthetically-generate datasets from the Environments Hub using DeepSeek-R1. Besides serving the purpose of fine-tuning for agentic behavior, this stage also has the effect of pushing the model toward longer effective context lengths. Using **context parallelism**, they scaled from a 65K context window to 98K. 
 
 ## chat template
 
@@ -352,6 +354,8 @@ A few important considerations for designing/picking a good chat template includ
 In SmolLM3, despite also being designed for hybrid reasoning, they discard the reasoning content for all but the final turn in the conversation to avoid blowing up the context during inference, but for training, it's important to retain the reasoning tokens to condition the model properly. So, Hugging Face orchestrates their own chat template, satisfying all criteria. Vibe tests initially revealed a bug of not passing in the custom instructions into their custom template, but this was quickly patched.
 
 While deriving inspiration from the Qwen3 template, Intellect-3 always reasons (not hybrid) by proxy of being dominantly trained on reasoning-only SFT traces; they use `qwen3_coder` tool call parser and `deepseek_r1` reasoning parser to ensure reasoning chains are consistently represented.
+
+gpt-oss-120b uses the harmony chat template, which introduces "channels" that determine the visibility of each message. For example, `final` for answers shown to the user, `commentary` for tool calling, and `analysis` for CoT tokens. This allows the model to interleave tool calls with CoT.
 
 ## capabilities
 
@@ -448,3 +452,17 @@ Given these aforementioned algorithms, choosing between them can be hard; Huggin
 | Reinforcement learning | Best when you have verifiable rewards or tasks requiring multi-step reasoning/planning. Can be used with reward models, but there are challenges like reward-hacking, where the model takes advantage in weaknesses in the reward model. | Flexible and powerful, but costly and harder to stabilise; requires careful reward shaping. Supported in most post-training frameworks. | Mid to large models (20B+), where extra capacity lets them exploit structured reward signals. |
 
 And for DPO (semi-online and online), it is also possible to match GRPO using far less compute. Specifically, they found that semi-online DPO (with syncing between the trainer and the generator every 100 steps) was generally the best compared to semi-online DPO with sync every 10 steps, online DPO, and GRPO.
+
+## safety testing and mitigation
+
+Because all of these models are have open model weights, then one worry is that malicious parties can enhance the model's harmful capabilities. By running Preparedness evaluations on gpt-oss-120b, OpenAI confirmed that the model doesn't achieve threshold for high capability in biological/chemical capability, cyber capability, and AI self-improvement.
+
+They also tested whether adversarial actors could fine-tune gpt-oss-120b to reach high capability in the aformentioned domains. By simulating the attacker, they created adversarilly fine-tuned versions, and upon review, their safety advisory group concluded that even with robust fine-tuning, gpt-oss-120b still couldn't high capability in the aformentioned domains. Also, they determined whether releasing the model could advance the frontier of biological capabilities in open foundation models (which also increases risk) and found that there were other open weight models at or near gpt-oss-120b, so they decide that releasing has low-impact on the frontier. 
+
+OpenAI also evaluted safety performance using other indicators:
+1. **Disallowed content**: benchmarked on *ProductionBencharmks*, they consider different categories such as PII, sexual, harassment, hate, self-harm using conversations more representative of production data. They evaluate completions using LLM-as-judge and determine `not_unsafe` according to the relevant OpenAI policy. Performance is on par with `o4-mini`.
+2. **Jailbreaks**: they testg with adversarial prompts that try to circumvent model refusals, specifically StrongReject which inserts jailbreak examples into the safety refusal eval and also uses the same policy grader. Performance is on par with `o4-mini`.
+3. **Instruction Heirarchy**: it follows system > developer > user > assistant > tool. They post-trained the moedl using system, developer, and user messages, sometimes conflicting, and the model must learn to chose the instruction higher in the hierarchy. This includes testing system prompt extraction via an user message and prompt injection hijacking. For PII protection, performance is on par with `o4-mini`, but for message conflict, gpt-oss-120b underperforms `o4-mini` by ~15%.
+4. **Hallucinations and CoT**: reasoning model's CoT can be very helpful for detecting misbehavior, and that models could learn to hide their thinking while misbehaving when pressured against having "bad thoughts." To measure hallucinations, they uses two datasets of either fact-seeking questions or publicly avilable facts about people and consider accuracy and hallucination rate. Here, hallucination rate is not just defined as 1 - accuracy, since the model can also output answers like "I don't know." Performance is a bit worse than `o4-mini`, which is expected given model size.
+5. **Fairness and Bias**: they also evaluate gpt-oss-120b on the [BBQ evaluation](https://arxiv.org/abs/2110.08193) which tests social bias against people belonging to protected classes along nine social dimensions. Performance is on par with `o4-mini`.
+
