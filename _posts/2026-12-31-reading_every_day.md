@@ -150,3 +150,5 @@ They also found that
 - Rankings among models were mostly robust to changes in few-shot examples ($p=0.02$) and conversation length ($p=0.06$), but more sensitive to evaluator reasoning effort ($p=0.21$).
 
 Bloom works best in measuring subjective behaviors like sycophancy, bias, and deception, but is less suitable in cases where verifiers would be used. Moreover, Bloom's dynamic nature is a strength for exploring diverse scenarios, but is weaker when needing precise control like word-level changes or maintaining identical conditions across runs. Lastly, models can learn to recognize when they are being evaluated, and Claude models have especially high awareness rates, which could worsen if Bloom-generated evaluations become part of future training data.
+
+# 1/4: petri, tooling for automated auditing

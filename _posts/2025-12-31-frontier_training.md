@@ -1,7 +1,7 @@
 ---
 title: "[WIP] frontier model training methodologies"
 date: 2026-01-01
-tokens: "~19.2k"
+tokens: "~19.3k"
 reading_time: 72
 ---
 
@@ -191,7 +191,7 @@ O_t &\leftarrow \text{NewtonSchulz5}(B_t) \\
 \end{align*}
 $$
 
-where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) describes the algebra of it in more detail, but we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because $f \circ f \circ \cdots f(x)$ converges to the sign function. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
+where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) and [this blog](https://kellerjordan.github.io/posts/muon/) describe the algebra of it in more detail as well as why the coefficients are what they are, but we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because $f \circ f \circ \cdots f(x)$ converges to the sign function. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
 
 But since muon operates at the matrix level, applying NewtonSchulz requires access to the full gradient tensor. One method uses an *overlapping round-robin scheme* where each rank is responsible for gathering all gradient matrices corresponding to its index and applying muon locally. Since FSDP expects sharded gradients/updates, and every rank has its shard of the muon-updated gradient, then the optimizer step can proceed normally. However, this issues lots of overlapping collectives across many matrices which breaks at scale.
 
@@ -212,7 +212,7 @@ WSD schedule especially helps with ablations since it does not require restartin
 
 There is a [critical batch size](https://arxiv.org/abs/1812.06162): too small and we may be underutilizing compute, but too large and the model needs more tokens to reach the same loss. Still, larger batch sizes give more efficient gradient estimations, and are preferred. 
 
-A useful proxy is that for optimizers like AdamW or Muon, if the batch size squares up by $k$ then the learning rate should scale up by $\sqrt{k}$. This is because the covariance shrinks by a factor of $k$, and based on the SGD parameter update $\Delta w = -\eta g_B$ , so $\text{Var}(\Delta w) \sim \eta^2 \frac{\Sigma}{B}$  where $B$ is the original batch size, so $\eta \sim \sqrt{k}$. 
+A useful proxy is that for optimizers like AdamW or Muon, if the batch size increases by a factor of $k$ then the learning rate should scale up by $\sqrt{k}$. This is because the covariance shrinks by a factor of $k$, and based on the SGD parameter update $\Delta w = -\eta g_B$ , so $\text{Var}(\Delta w) \sim \eta^2 \frac{\Sigma}{B}$  where $B$ is the original batch size, so $\eta \sim \sqrt{k}$. 
 
 As training progresses, the critical batch size grows. Initially, since the model is making large updates, $\lvert \lvert g \rvert \rvert^2$ is large so the model should have a small critical batch size. After the model stabilizes, larger batches become more effective. This motivates the idea of *batch size warmup*. 
 
@@ -229,7 +229,7 @@ Initially, [scaling laws](https://arxiv.org/abs/2001.08361) indicates that langu
 
 However, scaling laws are almost never religiously followed. Recently, labs have been "overtraining" models beyond the training durations suggested by scaling laws (e.g. Qwen 3 being trained on 36T tokens). Moreover, "compute-optimal" scaling laws don't account for larger models being more expensive after training due to inference. To that end, HuggingFace decided to train on 11T tokens on a 3B model.
 
-# data curation and pre/mid training
+# data curation and pre-training
 
 Even with the perfect architecture, a model's performance is still heavily dependent on its training data; no amount of compute or optimization can compensate for training on the wrong content. To this end, it's about assembling the right **data mixture**, balancing training objectives and tuning data proportions. This is particularly difficult since across competing objectives, for a fixed compute budget, increasing one proportion necessarily decreases another, hurting performance.
 
@@ -249,9 +249,9 @@ While architectural ablations are done on smaller models (e.g. on 1B models to t
 
 To determine optimal data proportions, recent models often use a validation loss or a holdout loss to minimize based on evaluation objectives and data domains. However, some of these methods tend to converge toward distributions that mirror the dataset size distribution, and they don't outperform careful manual ablations.
 
-## data
+## pre-training data
 
-### hugging face
+### smolLM3
 HuggingFace's goal was to build a multi-lingual model that also excels on math and coding. In stage 1 of their multi-stage training, they use a 75/12/10/3 split among english web data, multilingual web data, code data, and math data.
     
 - **English web data**: they ablate on a mixture of FineWeb-Edu (educational and STEM benchmarks) and DCLM (common sense reasoning), two strong open English web datasets at the time of training, finding that a 60/40 or a 50/50 split was best. Later, they add in other datasets including [Pes2o](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/pes2o), [Wikipedia & Wikibooks](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/wiki), and [StackExchange](https://huggingface.co/datasets/HuggingFaceTB/stackexchange_2025_md). 
@@ -267,7 +267,9 @@ Using data from [DCLM](https://arxiv.org/abs/2406.11794) and FineWeb Nous first 
 
 It's a bit unclear whether the data included was used in pre-training and post-training, so please refer to the data section in the post-training section for more.
 
-## mid-training
+# mid-training
+
+**Mid-training** is the intermediary step between pre-training and post-training where the base model is trained further on a large amount of domain-specific tokens, especially shaping the model to focus on common core skills like coding or reasoning. Often-times, the decision to mid-train is only made *after* initial SFT experiments are run because they may reveal performance gaps that indicate the need to mid-train on certain domains. But if the goal is to elicit shallow capabilities like style or conversation, the compute is better spent in post-training.
 
 Some recipes include an additional  **long context stage**; for example, [Qwen3](https://arxiv.org/abs/2505.09388) first trained on 30T tokens at 4k context, then a reasoning stage with 5T higher-quality tokens mainly on STEM and coding, and finally a long context stage at 32k context length.
 
@@ -275,43 +277,9 @@ SmolLM3 also does this, but instead of scaling from 4k to 128k directly, they se
 
 To go from 4k to 32k and later to 64k, they use **RoPE ABF** and increase the base frequency to 2M and 5M, respectively. Base frequencies like 10M further improved slightly on [RULER](https://arxiv.org/abs/2404.06654), long context benchmark, but it hurt short context tasks like GSM8k, so they were disregarded. To reach 128k, they found that using **YARN** from the 64k checkpoint (instead of using a four-fold increase from 32k) produced better performance, which confirms the hypothesis that training closer to the desired inference length benefits performance.
 
-# the training marathon
+While the mid-training data usually comes from web data, it also makes sense to use distilled reasoning tokens from a better model, as `Phi-4-Mini-Reasoning` did from `DeepSeek-R1`. Upon the base model, distilled mid-training increased benchmark scores like AIM24 by 3x, MATH-500 by 11 points, and GPQA-D by almost 6 points. SmolLM3 also does distilled mid-training. They considered datasets including reasoning tokens from DeepSeek-R1 (4M samples) and QwQ-32B (1.2M samples) but decide to delay using the [Mixture of Thoughts](https://huggingface.co/datasets/open-r1/Mixture-of-Thoughts) dataset until the final SFT mix. They found that it almost always makes sense to perform some amount of mid-training if the base model hasn't already seen lots of reasoning data during pre-training, because they noticed that `/no_think` reasoning mode also had improvements on reasoning benchmarks.
 
-Before the main training run starts, ensure the infrastructure is ready. This includes **Slurm reservations on clusters**, **stress-testing GPUs** ([GPU Fryer](https://github.com/huggingface/gpu-fryer) or [DCGM](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/dcgm-diagnostics.html)), and **avoid storage bloat** by uploading checkpoints to third parties and deleting local copies after saving the next. To this end, **checkpoint and auto-resume systems** are important.
-
-**Evals** are also deceptively time-consuming (Allen Institute spent roughly 20% on compute on evals), so ensuring automation and logging (not just evaluation scores, but also throughput, loss, gradient norm, and node health) is crucial. 
-
-## resolving mysteries
-
-### vanishing throughput 
-
-HuggingFace observed a ~40% drop in throughput (14k to 8k tokens/sec/GPU) after a few hours of starting the main run. The issue came from data storage; their cluster uses a network-attached storage with a "keep-hot" caching model that stores frequently accessed files and evicts "cold" files to third-party S3. With 24TB of training data, the storage was pushed to its limit, so it evicted dataset shards mid-training. This meant fetching them back and creating stalls that slowed throughput. 
-
-The first fix came in the form of swapping the storage method by reserving a spare node with the dataset preloaded and copying using `fpsync` (`s5cmd` took double the time). This fixed the issue of a node dying and the replacement GPU having no data since by swapping it with the spare node, training could continue. So, the new spare, not to be wasted, could run evals or dev jobs.
-
-Testing again, they found smaller but still prominent drops in throughput. After experimenting with individual nodes that yielded the same result, they focused on the change in training steps and found that smaller step counts resulted in smaller throughput drops. The `nanotron` dataloader they were using was growing the lookup table making the training step to the next chunk of tokens to read instead of keeping it bounded or precomputed. Stored in global memory, the growing table causes allocation failures and page faults/worse cache locality. So, they switched to `Tokenizedbytes` dataloader, solving the throughput issue.
-
-### noisy loss
-
-However, the loss curve for SmolLM3 looked more noisy. They found the issue with the dataloader because it reads sequences sequentially for each document. Without **shuffling of sequences**, batches are no longer representative of the overall data distribution, increasing gradient variance. Also, a long file (e.g. code) would supply many consecutive sequences that would also spike loss. To fix, they reshuffled the tokenized sequences offline; an alternative was changing the dataloader to do random access, which has both higher memory usage and slower runtime.
-
-### tensor parallelism
-
-After two days and 1T tokens, evals showed that with a similar recipe, SmolLM2 (1.7B) was more performant at the same stage in training as SmolLM3 was. The team found the issue with **tensor parallelism**: the weights of SmolLM2 fit on a single GPU, whereas for SmolLM3, they had to be shared across 2 GPUs.
-
-Further, the two TP ranks were initialised with the same random seed instead of different seeds, which causes similar activations/gradients, a loss of diversity of features, and lower convergence.
-
-### multi-client orchestrator
-
-Inference throughput should scale linearly with the number of nodes used. However, Prime found that the standard multi-node data-parallel strategy provided by vLLM didn't deliver this because as nodes increased, throughput plateaued. They abstracted the multi-client orchestrator so that each inference mode is deployed on an independent server (runs its own vLLM engine and scheduler, manages its own KV cache and batches its own requests), and the orchestrator maintains one client per node (avoids single-shared queue bottleneck). Groups rollout requests are distributed across clients according to round-robin scheduling, which keeps utilization balanced.
-
-### the usual suspects
-
-There are a few common culprits for training instabilities: high learning rate, bad data, data-parameter state interactions ([spikes can come from specific combinations of data batches and model parameter states](https://arxiv.org/abs/2204.02311)), poor initialisation ([OLMo2](https://arxiv.org/abs/2501.00656) revealed that $\mathcal{N}(0, 0.02)$ can improve stability upon scaled initialisation), and precision (eww, not fp16).
-
-Besides aforementioned ideas like **z-loss** or **QKNorm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tightening gradient clipping**.
-
-# mid/post-training
+# post-training
 
 ## evals
 
@@ -329,7 +297,7 @@ These evals test the following:
 
 To prevent overfitting, evals that encapsulate robustness or adaptability, like GSMPlus which perturbs problems from GSM8k, are also included. Another way is using **interval evals** or **vibe evaluations/arenas**, such as manually probing the model's behavior. Other tips include using small subsets to accelerate evals (especially if there's correlation with a larger eval), fixing the LLM-as-judge model (if the eval requires it), treat anything used during ablations as validation, use `avg@k` accuracy, and try not to (don't) benchmax!
 
-## data
+## post-training data
 
 ### intellect 3
 
@@ -351,26 +319,6 @@ Nous rejection samples against ~1k task-specific verifiers using [Atropos](https
 - **Schema Adherence**: facilitates generation (producing a valid JSON object from natural language prompt and a schema) and editing (identifying and correcting validation errors within a malformed JSON object)
 - **Tool Use**: facilitates agentic behavior by training the model to generate reasoning and produce tool calls via the $\mathtt{<tool\_call>}$ token.
 
-
-
-## mid-training and reasoning
-
-**Mid-training** is the intermediary step between pre-training and post-training where the base model is trained further on a large amount of domain-specific tokens, especially shaping the model to focus on common core skills like coding or reasoning. Often-times, the decision to mid-train is only made *after* initial SFT experiments are run because they may reveal performance gaps that indicate the need to mid-train on certain domains. But if the goal is to elicit shallow capabilities like style or conversation, the compute is better spent in post-training.
-
-While the data usually comes from web data, it also makes sense to use distilled reasoning tokens from a better model, as `Phi-4-Mini-Reasoning` did from `DeepSeek-R1`. Upon the base model, distilled mid-training increased benchmark scores like AIM24 by 3x, MATH-500 by 11 points, and GPQA-D by almost 6 points. SmolLM3 also does distilled mid-training. They considered datasets including reasoning tokens from DeepSeek-R1 (4M samples) and QwQ-32B (1.2M samples) but decide to delay using the [Mixture of Thoughts](https://huggingface.co/datasets/open-r1/Mixture-of-Thoughts) dataset until the final SFT mix. They found that it almost always makes sense to perform some amount of mid-training if the base model hasn't already seen lots of reasoning data during pre-training, because they noticed that `/no_think` reasoning mode also had improvements on reasoning benchmarks.
-
-## sft
-
-Most post-training pipelines start with **supervised fine-tuning (SFT)** because it's *cheap* compared to RL, *stable* due to insensitivity to reward design and hyperparameters, and gives a strong baseline off of the base model. Usually, base models are too unrefined to benefit from more advanced post-training methods. SFT often comes in the form of **distillation from stronger models**. Strong models may suffer from success and skip the SFT stage because there are no stronger models to distill from (such is the case with DeepSeek R1-Zero).
-
-Dataset curation for SFT is important; datasets might seem great on paper, but models trained on those datasets may end up overindexing on certain domains, such as science. To this end, Hugging Face curated a data mixture with ~100k examples and 76.1M tokens, mostly consisting of instruction following, reasoning, and steerability for both think and non-think modes. Importantly, *data should be paired across modes* because otherwise, there is not an indication of when to give a concise answer or use extended reasoning.
-
-For training, there are other considerations as well: full finetuning vs more parameter efficient methods like LoRA or QLoRA, specialized kernels like FlashAttention or the likes of SonicMoE for more efficient compute usage, masking the loss for only assistant tokens, the type of parallelism needed, learning rate tuning, and sequence length tuning to match the distribution of data to speed up training (more useful for larger datasets).
-
-In Intellect-3, Prime splits SFT into two stages: **general reasoning SFT** and **agentic SFT**. In the first, they use datasets consisting of math, code, science, tooling, chat, and instruction splits from [Nemotron's post-training dataset](https://huggingface.co/datasets/nvidia/Nemotron-Post-Training-Dataset-v1) and [AM-DeepSeek-R1-0528-Distilled](https://huggingface.co/datasets/a-m-team/AM-DeepSeek-R1-0528-Distilled) for a total of 9.9B tokens. In the second stage, they target agentic behavior, tool use, and long-horizon control (gpt-oss-120b also targets agentic behavior and tool use), using a mix of open-source agentic datasets like [SWE-Swiss](https://github.com/zhenyuhe00/SWE-Swiss) and synthetically-generate datasets from the Environments Hub using DeepSeek-R1. Besides serving the purpose of fine-tuning for agentic behavior, this stage also has the effect of pushing the model toward longer effective context lengths. Using **context parallelism**, they scaled from a 65K context window to 98K. 
-
-In Hermes 4, they also do two stages of SFT, both around reasoning. They noted that despite training on sequences at most 16k tokens in length, the reasoning lengths frequently exceed 41k tokens on reasoning tasks. So, they do a second stage to teach the model to generate the closing $\mathtt{</think>}$ tags at 30k tokens, their budget. This insertion at a fixed token count allows the model to learn a counting behavior ("when you reach $N$ tokens, stop") while ensuring that the model's own distribution doesn't change significantly. This also avoids the problem of model collapse when recursive training on full, self-generated outputs leads to distribution narrowing and quality degradation.
-
 ## chat template
 
 A few important considerations for designing/picking a good chat template include **system role customizability**, **tool calling**, **reasoning**, and **compatibility with inference engines** like vLLM or SGLang. Qwen3 and GPT-OSS satisfy all criteria, and Qwen3 is designed for hybrid reasoning. 
@@ -388,6 +336,18 @@ $$
 This results in markedly different behaviors, which is explored more in "behaviors and latent capabilities" subsection of "behaviors and safety" section.
 
 DeepSeek-R1-Zero's chat template looks very similar to others, but additionally includes $\mathtt{<answer></answer>}$ tags to provide the final answer.
+
+## sft
+
+Most post-training pipelines start with **supervised fine-tuning (SFT)** because it's *cheap* compared to RL, *stable* due to insensitivity to reward design and hyperparameters, and gives a strong baseline off of the base model. Usually, base models are too unrefined to benefit from more advanced post-training methods. SFT often comes in the form of **distillation from stronger models**. Strong models may suffer from success and skip the SFT stage because there are no stronger models to distill from (such is the case with DeepSeek R1-Zero).
+
+Dataset curation for SFT is important; datasets might seem great on paper, but models trained on those datasets may end up overindexing on certain domains, such as science. To this end, Hugging Face curated a data mixture with ~100k examples and 76.1M tokens, mostly consisting of instruction following, reasoning, and steerability for both think and non-think modes. Importantly, *data should be paired across modes* because otherwise, there is not an indication of when to give a concise answer or use extended reasoning.
+
+For training, there are other considerations as well: full finetuning vs more parameter efficient methods like LoRA or QLoRA, specialized kernels like FlashAttention or the likes of SonicMoE for more efficient compute usage, masking the loss for only assistant tokens, the type of parallelism needed, learning rate tuning, and sequence length tuning to match the distribution of data to speed up training (more useful for larger datasets).
+
+In Intellect-3, Prime splits SFT into two stages: **general reasoning SFT** and **agentic SFT**. In the first, they use datasets consisting of math, code, science, tooling, chat, and instruction splits from [Nemotron's post-training dataset](https://huggingface.co/datasets/nvidia/Nemotron-Post-Training-Dataset-v1) and [AM-DeepSeek-R1-0528-Distilled](https://huggingface.co/datasets/a-m-team/AM-DeepSeek-R1-0528-Distilled) for a total of 9.9B tokens. In the second stage, they target agentic behavior, tool use, and long-horizon control (gpt-oss-120b also targets agentic behavior and tool use), using a mix of open-source agentic datasets like [SWE-Swiss](https://github.com/zhenyuhe00/SWE-Swiss) and synthetically-generate datasets from the Environments Hub using DeepSeek-R1. Besides serving the purpose of fine-tuning for agentic behavior, this stage also has the effect of pushing the model toward longer effective context lengths. Using **context parallelism**, they scaled from a 65K context window to 98K. 
+
+In Hermes 4, they also do two stages of SFT, both around reasoning. They noted that despite training on sequences at most 16k tokens in length, the reasoning lengths frequently exceed 41k tokens on reasoning tasks. So, they do a second stage to teach the model to generate the closing $\mathtt{</think>}$ tags at 30k tokens, their budget. This insertion at a fixed token count allows the model to learn a counting behavior ("when you reach $N$ tokens, stop") while ensuring that the model's own distribution doesn't change significantly. This also avoids the problem of model collapse when recursive training on full, self-generated outputs leads to distribution narrowing and quality degradation.
 
 ## capabilities
 
@@ -515,3 +475,39 @@ Continuing from the chat template section, Nous' decision to change the token us
 Similarly, Hermes 4 demonstrates comparatively greater **contextual fidelity** over **policy rigidity**. Most other large models will follow policy compliance even when faced with fictional or controlled prompts (such as issuing disclaimers or reformulated responses to align with safety constraints), but Hermes 4 interprets fictional prompts more as role-play and generates in-character responses. This also means that Hermes 4 has a lower refusal rate; on their internal RefusalBench, they found that Hermes 4 (reasoning) ranked highest (lowest refusal rate) among all tested models, whereas `gpt-oss-120b` and `gpt-oss-20b`, perhaps unsurprisingly, had the lowest scores (highest refusal rate). Also, this level of embodied personas extends even to political analysis, where the model produces reasoning balancing factual recall with nuanced framing, and less of policy-driven hedging common to other large models.
 
 Excessive sycophancy is an undesired behavioral trait, so most models apply an *anti-sycophancy* system prompt to adjust surface-level politeness while leaving underlying reasoning unchanged. When implemented in Hermes 4, Nous observed a deeper shift: CoT traces reflect the aim to **steer user interaction away from inference**. This sometimes introduces embodied or emphatic language.
+
+# the training marathon
+
+Before the main training run starts, ensure the infrastructure is ready. This includes **Slurm reservations on clusters**, **stress-testing GPUs** ([GPU Fryer](https://github.com/huggingface/gpu-fryer) or [DCGM](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/dcgm-diagnostics.html)), and **avoid storage bloat** by uploading checkpoints to third parties and deleting local copies after saving the next. To this end, **checkpoint and auto-resume systems** are important.
+
+**Evals** are also deceptively time-consuming (Allen Institute spent roughly 20% on compute on evals), so ensuring automation and logging (not just evaluation scores, but also throughput, loss, gradient norm, and node health) is crucial. 
+
+## resolving mysteries
+
+### vanishing throughput 
+
+HuggingFace observed a ~40% drop in throughput (14k to 8k tokens/sec/GPU) after a few hours of starting the main run. The issue came from data storage; their cluster uses a network-attached storage with a "keep-hot" caching model that stores frequently accessed files and evicts "cold" files to third-party S3. With 24TB of training data, the storage was pushed to its limit, so it evicted dataset shards mid-training. This meant fetching them back and creating stalls that slowed throughput. 
+
+The first fix came in the form of swapping the storage method by reserving a spare node with the dataset preloaded and copying using `fpsync` (`s5cmd` took double the time). This fixed the issue of a node dying and the replacement GPU having no data since by swapping it with the spare node, training could continue. So, the new spare, not to be wasted, could run evals or dev jobs.
+
+Testing again, they found smaller but still prominent drops in throughput. After experimenting with individual nodes that yielded the same result, they focused on the change in training steps and found that smaller step counts resulted in smaller throughput drops. The `nanotron` dataloader they were using was growing the lookup table making the training step to the next chunk of tokens to read instead of keeping it bounded or precomputed. Stored in global memory, the growing table causes allocation failures and page faults/worse cache locality. So, they switched to `Tokenizedbytes` dataloader, solving the throughput issue.
+
+### noisy loss
+
+However, the loss curve for SmolLM3 looked more noisy. They found the issue with the dataloader because it reads sequences sequentially for each document. Without **shuffling of sequences**, batches are no longer representative of the overall data distribution, increasing gradient variance. Also, a long file (e.g. code) would supply many consecutive sequences that would also spike loss. To fix, they reshuffled the tokenized sequences offline; an alternative was changing the dataloader to do random access, which has both higher memory usage and slower runtime.
+
+### tensor parallelism
+
+After two days and 1T tokens, evals showed that with a similar recipe, SmolLM2 (1.7B) was more performant at the same stage in training as SmolLM3 was. The team found the issue with **tensor parallelism**: the weights of SmolLM2 fit on a single GPU, whereas for SmolLM3, they had to be shared across 2 GPUs.
+
+Further, the two TP ranks were initialised with the same random seed instead of different seeds, which causes similar activations/gradients, a loss of diversity of features, and lower convergence.
+
+### multi-client orchestrator
+
+Inference throughput should scale linearly with the number of nodes used. However, Prime found that the standard multi-node data-parallel strategy provided by vLLM didn't deliver this because as nodes increased, throughput plateaued. They abstracted the multi-client orchestrator so that each inference mode is deployed on an independent server (runs its own vLLM engine and scheduler, manages its own KV cache and batches its own requests), and the orchestrator maintains one client per node (avoids single-shared queue bottleneck). Groups rollout requests are distributed across clients according to round-robin scheduling, which keeps utilization balanced.
+
+### the usual suspects
+
+There are a few common culprits for training instabilities: high learning rate, bad data, data-parameter state interactions ([spikes can come from specific combinations of data batches and model parameter states](https://arxiv.org/abs/2204.02311)), poor initialisation ([OLMo2](https://arxiv.org/abs/2501.00656) revealed that $\mathcal{N}(0, 0.02)$ can improve stability upon scaled initialisation), and precision (eww, not fp16).
+
+Besides aforementioned ideas like **z-loss** or **QKNorm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tightening gradient clipping**.
