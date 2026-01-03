@@ -1,9 +1,10 @@
 ---
-title: "[WIP] a paper a day keeps the unemployment away"
+title: "[WIP] a paper a day keeps the rust away"
 date: 2026-12-31
+ongoing: true
 ---
 
-Every day in 2026, I will read either one AI/ML paper or blog. This is my running log of distillations, meant to be a learning archive for myself as well as a capsule of how the field evolves across 2026.
+Every day in 2026, I'll read an ML paper/blog. This is my running log of distillations, meant to be a learning archive for myself as well as a capsule of how the field evolves across 2026.
 
 # 1/1: manifold-constrained hyper-connections
 

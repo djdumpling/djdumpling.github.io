@@ -23,6 +23,9 @@ google_analytics: G-97R68RHKQG
 #########################################################################################
 theme: "minima"
 
+# Allow future-dated posts to be processed (for "Ongoing" section)
+future: true
+
 markdown: kramdown
 
 kramdown:

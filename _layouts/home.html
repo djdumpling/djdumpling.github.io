@@ -5,10 +5,11 @@ layout: default
 <div class="home">
   {{ content }}
 
-  {%- if site.posts.size > 0 -%}
+  {%- assign regular_posts = site.posts | where_exp: "post", "post.ongoing != true" -%}
+  {%- if regular_posts.size > 0 -%}
     <h2 class="post-list-heading">Posts</h2>
     <div class="post-list">
-      {%- for post in site.posts -%}
+      {%- for post in regular_posts -%}
       <div class="post-item">
         <div class="post-date">{{ post.date | date: "%B %d, %Y" }}</div>
         <h3 class="post-title">
