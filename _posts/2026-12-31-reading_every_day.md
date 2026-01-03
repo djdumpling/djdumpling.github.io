@@ -14,7 +14,7 @@ $$
 \mathbf{x}_{l+1} = \mathbf{x}_l + \mathcal{F}(\mathbf{x}_l, \mathcal{W}_l)
 $$
 
-where \(\mathbf{x}_{l}, \mathbf{x}_{l+1}\) are the input/output of the $l^\text{th}$ layer, respectively, and $\mathcal{F}$ denotes the residual function. **Hyper-connections**, popularized by [Zhu et al., 2024](https://arxiv.org/abs/2409.19606), added learnable mappings that instead of carrying $\mathbf{x}_l$, carries a bundle of $n$ parallel residual streams defined by
+where $\mathbf{x}\_{l}, \mathbf{x}\_{l+1}$ are the input/output of the $l^\text{th}$ layer, respectively, and $\mathcal{F}$ denotes the residual function. **Hyper-connections**, popularized by [Zhu et al., 2024](https://arxiv.org/abs/2409.19606), added learnable mappings that instead of carrying $\mathbf{x}\_l$, carries a bundle of $n$ parallel residual streams defined by
 
 $$
 \mathbf{x}_{l+1} = \mathcal{H}_l^\text{res}\mathbf{x}_l + \left(\mathcal{H}_l^\text{post}\right)^\top\mathcal{F}(\mathcal{H}_l^\text{pre}\mathbf{x}_l, \mathcal{W}_l)
