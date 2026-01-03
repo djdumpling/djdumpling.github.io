@@ -35,7 +35,7 @@ where all pre, post, and residual types of $\alpha_l$ and $\mathbf{b}_l$ are lea
 
 ![Illustrations of residual connection paradigms](/public/reading/mHC.png)
 
-**Manifold-constrained hyper-connections** restore the identity mapping property by using the Sinkhorn-Knopp algorithm to project $\mathcal{H}_l^\text{res}$ onto the Birkhoff polytope, the set of all doubly stochastic matrices. These matrices have the property that the sum of all rows and columns equals 1, meaning that the matrix acts more like averaging rather than scaling since the spectral norm is less than 1. Due to closure of matrix multiplication for doubly stochastic matrices, then $\prod_{i=1}^{L-l} \mathcal{H}_{L-i}^\text{res}$ is still doubly stochastic, meaning that the transformer maintains the stability of identity mappings. If the dimension is 1, then the doubly stochastic matrix is exactly the identity matrix. The HC formulae can be reformulated to obtain
+**Manifold-constrained hyper-connections** restore the identity mapping property by using the Sinkhorn-Knopp algorithm to project $\mathcal{H}\_l^\text{res}$ onto the Birkhoff polytope, the set of all doubly stochastic matrices. These matrices have the property that the sum of all rows and columns equals 1, meaning that the matrix acts more like averaging rather than scaling since the spectral norm is less than 1. Due to closure of matrix multiplication for doubly stochastic matrices, then $\prod\_{i=1}^{L-l} \mathcal{H}\_{L-i}^\text{res}$ is still doubly stochastic, meaning that the transformer maintains the stability of identity mappings. If the dimension is 1, then the doubly stochastic matrix is exactly the identity matrix. The HC formulae can be reformulated to obtain
 
 $$
 \begin{align*}
