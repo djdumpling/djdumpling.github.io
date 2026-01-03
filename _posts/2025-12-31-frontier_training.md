@@ -3,7 +3,7 @@ title: "[WIP] frontier model training methodologies"
 date: 2026-01-01
 ---
 
-How do labs train a multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Allen Institute's [Olmo 3](https://arxiv.org/abs/2512.13961), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), and OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925). This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with an emphasis on training methodology over infrastructure.
+How do labs train a frontier, multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), and OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925). This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with an emphasis on training methodology over infrastructure.
 
 These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is supplemented with notes from other reports (including Intellect-3, gpt-oss-120b, and Hermes 4; currently adding Olmo 3). Also, these notes have not been thoroughly reviewed. Any errors are entirely my responsibility.
 
@@ -11,28 +11,26 @@ While this blog explores some infrastructure-related ideas like in-flight weight
 
 ## (extremely broad) general practices
 
-1. [HF] "**Learn to identify what's worth testing, not just how to run tests.** Perfect ablations on irrelevant choices waste as much compute as sloppy ablations on important ones." 
+1. "**Learn to identify what's worth testing, not just how to run tests.** Perfect ablations on irrelevant choices waste as much compute as sloppy ablations on important ones." 
     - Ablations need to be **fast** (faster iteration $\rightarrow$ more hypotheses tested) and **reliable** (need strong discriminative power because otherwise, it may be noise)
     - "“The real value of a solid ablation setup goes beyond just building a good model. When things inevitably go wrong during our main training run (and they will, no matter how much we prepare), we want to be confident in every decision we made and quickly identify which components weren’t properly tested and could be causing the issues. This preparation saves debugging time and keeps our sanity intact. There’s nothing worse than staring at a mysterious training failure with no idea where the bug could be hiding.”
-2. [HF] **Choose an established baseline with good architecture and training setup design**. These take years of iteration, and people have discovered common failure modes and instabilities.
+2. **Choose an established baseline with good architecture and training setup design**. These take years of iteration, and people have discovered common failure modes and instabilities.
     - There are a plethora of modifiable components (attention mechanisms and positional encodings to name a few), but follow the principle of **derisking**: "never change anything unless you've tested that it helps."
-3. [HF] **In evals, look for monotonicity** (score improvement), **low noise** (e.g. score resistance to random seeds), above-random performance (random-level performance for extended time frames isn't useful), and ranking consistency (ranking of approaches should remain stable throughout training). 
+3. **In evals, look for monotonicity** (score improvement), **low noise** (e.g. score resistance to random seeds), above-random performance (random-level performance for extended time frames isn't useful), and ranking consistency (ranking of approaches should remain stable throughout training). 
     - Prioritize evals! Between pre-training and post-training, core evals should be preserved, and their implementation should be finished long before the base model is finished training. 
-4. [HF] **Balance exploration and execution.** For methods, choose flexibility and stability over peak performance, set a deadline for exploration.
+4. **Balance exploration and execution.** For methods, choose flexibility and stability over peak performance, set a deadline for exploration.
 
 # architecture and set-up
 
-Model families like DeepSeek, gpt-oss-120b, Kimi, OLMo, and SmolLM have vastly different architectures (dense vs MoE), attention mechanisms (MHA vs MLA vs GQA), position encodings (RoPE, partial RoPE, NoPE), among many, many, others.
+Model families like DeepSeek, gpt-oss-120b, Kimi, OLMo, and SmolLM have vastly different architectures (dense vs MoE), attention mechanisms (MHA vs MLA vs GQA), position encodings (RoPE, partial RoPE, NoPE), among many, many, others. Not all information about the models is publicly available, so some are chosen:
 
-| | DeepSeek | gpt-oss-120b | Kimi | OLMo | SmolLM |
-|--|----------|---------|-------|------|--------|
-| Parameter Count | X | 116.83B | X | X | 3B|
-| Attention | X | GQA (8 groups) | X | X | GQA (4 groups)|
-| Embedding Sharing | X | untied (?) | X | X | tied|
-| Positional Embedding| X | RoPE + YARN| X | X | RNoPE + YARN|
-| Architecture | X | MoE | X | X | dense|
-| Tokenizer | X | [o200k_harmony](https://github.com/openai/tiktoken) | X | X | Llama3|
-| Optimizer | X | ? | X | X | AdamW|
+| | gpt-oss-120b | OLMo 3 | SmolLM |
+|--|---------|------|--------|
+| Parameter Count | 116.83B | 32B | 3B|
+| Attention | GQA (8 groups) | GQA (?) | GQA (4 groups)|
+| Positional Embedding| RoPE + YARN| RoPE + YARN | RNoPE + YARN|
+| Architecture | MoE | dense | dense|
+| Tokenizer | [o200k_harmony](https://github.com/openai/tiktoken) | [cl_100k](https://github.com/openai/tiktoken) | Llama3|
 
 Between choosing architecture, HuggingFace suggests following a decision tree such that if one of these is true, then to choose a dense architecture:
 - memory-constrained (since MoEs must have all experts loaded)
