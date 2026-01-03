@@ -85,7 +85,9 @@ Prime has already incorporated RLMs into $\mathtt{verifiers}$ and $\mathtt{prime
 4. **the RLM provides an answer in a Python variable**. Particularly, an `answer` dictionary is instantiated by `answer = {"content": "", ready: False}` where `content` is a "scratchpad" which the LLM can edit/delete over multiple turns, and `ready` is a boolean indicating the rollout end and if the answer can be extracted from `content`.
 
 Additionally, a prompt and extra input data can be given. The prompt is injected into the RLM's context window, whereas the input data can be accessed via the REPL.
+
 ---
+
 They ablate the RLM on four environments using `GPT-5-mini` (initial tests show it's better than open-source models), comparing a standard LLM, the RLM, and the RLM with environment-specific tips:
 
 | Environment | Description | Why Chosen |  |
