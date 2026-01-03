@@ -2,6 +2,8 @@
 title: "a paper a day keeps the rust away"
 date: 2026-12-31
 ongoing: true
+tokens: "~4.9k"
+reading_time: 15
 ---
 
 Every day in 2026, I'll read an ML paper/blog. This is my running log of distillations, meant to be a learning archive for myself as well as a capsule of how the field evolves across 2026.
@@ -112,3 +114,39 @@ Prime hypothesizes that the true potential of RLMs will be unlocked after RL tra
 2. **customization**: faciliating users defining custom functions for the RLM to use in its REPL as well as adding descriptions for packages without re-writing the entire prompt.
 3. **context compression multiple assistant-user turns** should be a natural part of the RLM
 4. **multi-modal support** and custom data-types
+
+# 1/3: bloom, tooling for automated behavioral evaluations
+
+From the Anthropic Alignment team, [this blog](https://alignment.anthropic.com/2025/bloom-auto-evals/) open sources **Bloom**, an open-source, agentic tool for automated behaviorial evaluations of researcher-specified traits, quantifying their severity and frequency across automatically generated scenarios.
+
+Bloom generates scenarios depending on the seed, a configurable file including information about the model, behavior description, example transcripts, and more. The researcher specifies the exact behavior and interaction type to be investigated, and using the seed, Bloom generates scenarios, to be human checked, to ensure they capture the intended behavior; this stage involves iteration on configuration options and agent prompts. Once all configurable options are fixed, the researcher can run large-scale evals.
+
+<div style="display: flex; justify-content: center;">
+  <img src="/public/reading/bloom.png" alt="Bloom is a four-stage automated pipeline that generates behavioral evaluations from a user-provided seed." style="width:80%; display: block; margin: 0 auto;" />
+</div>
+
+More specifically, within Bloom, there are four stages:
+1. **Understanding**: based on the seed (specifically, the behavior description and possibly few-shot example transcripts), the agent digests the targeted behavior, how it manifests, why it matters, as well as summaries. This context is reused frequently to align the agent.
+	- Although this is more about of the seed configuration, another parameter is whether the evaluator knows the target model's identity, which is useful for measuring preferential bias.
+2. **Ideation**: the agent generates scenarios designed to illicit the targeted behavior. Each scenario is highly specified (situation, simulated user, system prompt, interaction environment, and an example of how the behavior might manifest)
+    - Also specifies $n$ rollouts, web search or not, and diversity $d \in [0,1]$. The ideator generates $n \cdot d$ distinct scenarios, and then a variation agent expands those via pertrubations to produce $n$ total evaluations.
+3. **Rollout**: scenarios are rolled out in parallel, where the agent simulates the user and tool responses until it successfulyl elicits the behavior (or reaches maximum number of turns). Using the metadata about the scenario, the system prommpt and initial ser message are also provided.
+	- Also specifies modality (conversational or simulated environment), the number of times to roll out each scenario, and whether to simulate a user
+4. **Judgment**: an LLM-as-judge scores each transcript 1-10 for the targetted behavior and secondary qualities (e.g. realism, elicitation difficulty, evaluation invalidity) to contextualize the score. This is passe into a meta-judge which produces the evaluation report (suite summary, scenario breakdown, elicitation strategies, success rate, and others)
+	- Also specifies repeated judge samples (reducing variance), redaction tags if parts of the rollout transcript should not be analyzed.
+
+Creating ten system-prompted model organisms designed to exhibit a unique quirky behavior, they found that either using Sonnet 4 or Sonnet 3.7 as the target, Bloom could distinguish system-prompted model organisms from baseline models for 9/10 quirks, *even without example transcripts*. Tested separately, Opus-4.1 was the best among four frontier mdoels to elicit behaviors such as deference, increasing pep, and self promotion. Also, standard deviation was lowest when the scenarios consistently elicited the behavior or consistently failed to, while mid-range averages showed the highest variance. 
+
+<div style="display: flex; justify-content: center;">
+  <img src="/public/reading/bloom_elicitation.png" alt="Bloom successfully distinguishes system-prompted model organisms from baseline models for 9/10 quirks, even without example transcripts." style="width:80%; display: block; margin: 0 auto;" />
+</div>
+
+They also found that
+- Claude Opus 4.1's behavior presence scores correlated most strongly (Spearman correlation coefficient of 0.856)with human-labeled scores.
+- As a judge model, Sonnet 4 scored extremely consistently whereas GPT-5's judge standard deviation grew roughly linearly, achieving upwards of a standard deviation=3 for an average bheavior prescence score of ~5.8.
+- To validate the use of the meta-judge, they evaluated Sonnet 4 multiple times while varying the diversity parameter and found that the meta-judge's diversity ratings correlated well with the configured diversity.
+- When ideating using single-turn political scenarios and analyzing/classifying them over topic, ideological charge, realism ,and diversity, the choice of the ideation model heavily influence the scenario distribution. Using GPT 5 or activating web search causes queries to be mostly neutral, Grok 4 generates more democratically charged queries, and Claude Opus 4.1 is more balanced among all models, reasoning modes, and features tested.
+- Sonnet 4.5 is the least bias when it comes to self-preference, and enabling high reasoning effort can rough the elicitation rate of self-preferential bias from 0.29 on medium down to 0.13.
+- Rankings among models were mostly robust to changes in few-shot examples ($p=0.02$) and conversation length ($p=0.06$), but more sensitive to evaluator reasoning effort ($p=0.21$).
+
+Bloom works best in measuring subjective behaviors like sycophanc, bias, and deception, but is less suitable is cases were verifiers would be used. Moreover, Bloom's dynamic nature is a strength for exploring diverse scenarios, but is weaker when needing precise control like word-level changes or maintaining identical conditions across runs. Lastly, models learn can recognize when they are being evaluated, and Claude models have especially high awareness rates, which could worse if Bloom-generated evaluations become part of future training data.

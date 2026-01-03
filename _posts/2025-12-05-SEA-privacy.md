@@ -2,6 +2,8 @@
 title: "activation engineering for privacy protection in LLMs"
 date: 2025-12-14
 image: /public/sea_privacy/design.png
+tokens: "~6.1k"
+reading_time: 23
 ---
 
 LLMs trained on web-scale corpora inadvertently memorize and leak personally identifiable information (PII)present in their training data. We investigate inference-time interventions to suppress this privacy leakage. We evaluate three editing strategies: activation patching with computed steering vectors (APNEAP), random Gaussian noise steering, and Spectral Editing of Activations (SEA). Using the Enron email corpus with `GPT-Neo-1.3B` and finetuned `Qwen3-8B-enron`, we measure targeted PII suppression via exposure metrics like mean reciprocal rank (MRR), and utility via perplexity.

@@ -17,6 +17,9 @@ layout: default
             {{ post.title | escape }}
           </a>
         </h3>
+        {%- if post.tokens -%}
+          <div class="post-meta">{{ post.tokens }} tokens</div>
+        {%- endif -%}
         {%- if post.excerpt -%}
           <div class="post-summary">{{ post.excerpt }}</div>
         {%- endif -%}

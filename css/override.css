@@ -150,6 +150,13 @@ hr {
   text-decoration: underline;
 }
 
+.post-item .post-meta {
+  color: #8a8a8a;
+  font-size: 0.85em;
+  margin-bottom: 10px;
+  font-style: italic;
+}
+
 .post-item .post-summary {
   color: #24292e;
   font-size: 1em; /* Medium font */

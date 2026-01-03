@@ -1,6 +1,8 @@
 ---
 title: "[WIP] frontier model training methodologies"
 date: 2026-01-01
+tokens: "~19.2k"
+reading_time: 72
 ---
 
 How do labs train a frontier, multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925), Kimi's [Kimi K2](https://arxiv.org/pdf/2507.20534), DeepSeek's [DeepSeek-R1](https://arxiv.org/pdf/2501.12948), and Qwen's [Qwen3](https://arxiv.org/pdf/2505.09388). This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with an emphasis on training methodology over infrastructure.
