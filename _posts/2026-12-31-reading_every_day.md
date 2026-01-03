@@ -78,8 +78,6 @@ The RLM allows an LLM to use a persistent Python REPL to inspect and transform i
   <img src="/public/reading/rlm.png" alt="RLM architecture showing model context, Python REPL, and parallel sub-LLMs" style="width:80%; display: block; margin: 0 auto;" />
 </div>
 
-[TODO: add more from the original paper]
-
 Prime has already incorporated RLMs into $\mathtt{verifiers}$ and $\mathtt{prime-rl}$ as well as created several RLM-based environments on their Environments Hub. There are a number of details involved:
 1. **sub-LLM calls can be parallelized** via an `llm_batch` function
 2. **any tools given by the environment are usable only by the sub-LLMs**. This allows the main RLM to delegate the work that requires tools instead of seeing all of the tool-outputed tokens.
@@ -98,8 +96,6 @@ They ablate the RLM on four environments using `GPT-5-mini` (initial tests show 
 | **verbatim-copy** | Exact reproduction of input content | faithful context preservation | tests different content types (e.g. json and csv) with `target_length` and mixing across fragments|
 
 `_ENV_TIPS` include specifiying consistent facts acorss sources in DeepDive, specifiying chunked context and prompt writing in Oolong, and specifiying writing into and printing from `answer["content"]` to iterate in verbatim-copy.
-
-
 
 The RLM scaffold improves reward on Oolong and verbatim-copy, but not on DeepDive without tips and MathPython. The former can be explained by the poor usage of scaffolding, and the tips of splitting the question into smaller problems solvable by sub-LLMs helps significantly.The latter can be explained since the RLM allows for the same behavior for solving the environment as the LLM (access to Python tools and same libraries), so the RLM is overfitting to the benchmark using a stanfard Python tool. Both of these could be solved by training. Time spent for RLM (+tips) increases across the board. This can be attibuted to an increase total token budget, inefficient thinking, and extra tool-calling. 
 

@@ -4,7 +4,7 @@ date: 2025-12-14
 image: /public/sea_privacy/design.png
 ---
 
-LLMs trained on web-scale corpora inadvertently memorize and leak personally identifiable information (PII) present in their training data. We investigate inference-time interventions to suppress this privacy leakage without model retraining. We evaluate three editing strategies: activation patching with computed steering vectors (APNEAP), random Gaussian noise steering, and Spectral Editing of Activations (SEA). Using the Enron email corpus with `GPT-Neo-1.3B` and finetuned `Qwen3-8B-enron`, we measure targeted PII suppression via mean reciprocal rank (MRR) and exposure metrics, and utility via perplexity.
+LLMs trained on web-scale corpora inadvertently memorize and leak personally identifiable information (PII)present in their training data. We investigate inference-time interventions to suppress this privacy leakage. We evaluate three editing strategies: activation patching with computed steering vectors (APNEAP), random Gaussian noise steering, and Spectral Editing of Activations (SEA). Using the Enron email corpus with `GPT-Neo-1.3B` and finetuned `Qwen3-8B-enron`, we measure targeted PII suppression via exposure metrics like mean reciprocal rank (MRR), and utility via perplexity.
 
 This blog is abbreviated from work done jointly with two classmates, [Coby Kassner](https://cobylk.io/) and [Yejun Yun](https://www.linkedin.com/in/yejun-yun/), as a part of Yale's Trustworthy Deep Learning class taught by [Rex Ying](https://www.cs.yale.edu/homes/ying-rex/). Our implementation is available [here](https://github.com/cobylk/CPSC-4710-privacy).
 
