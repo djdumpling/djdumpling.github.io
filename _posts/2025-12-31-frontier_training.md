@@ -1,13 +1,13 @@
 ---
 title: "[WIP] frontier model training methodologies"
 date: 2026-01-01
-tokens: "~19.3k"
+tokens: "~20.0k"
 reading_time: 72
 ---
 
 How do labs train a frontier, multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925), Kimi's [Kimi K2](https://arxiv.org/pdf/2507.20534), DeepSeek's [DeepSeek-R1](https://arxiv.org/pdf/2501.12948), and Qwen's [Qwen3](https://arxiv.org/pdf/2505.09388). This blog is an attempt towards distilling the motivations, considerations, and techniques used to train their models with an emphasis on training methodology over infrastructure.
 
-These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, and Hermes 4 (adding Kimi, DeepSeek, and Qwen soon). Also, these notes have not been thoroughly reviewed. Any errors are entirely my responsibility.
+These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, Hermes 4, and DeepSeek (adding Kimi and Qwen soon). Also, these notes have not been thoroughly reviewed. Any errors are entirely my responsibility.
 
 While this blog explores some infrastructure-related ideas like in-flight weight updates and multi-client orchestrators, there are many other ideas mentioned throughout those posts/blogs like expert parallelism and quantization. HuggingFace writes more about gpt-oss-120b's infrastructure [here](https://huggingface.co/blog/faster-transformers).
 
@@ -277,6 +277,8 @@ SmolLM3 also does this, but instead of scaling from 4k to 128k directly, they se
 
 To go from 4k to 32k and later to 64k, they use **RoPE ABF** and increase the base frequency to 2M and 5M, respectively. Base frequencies like 10M further improved slightly on [RULER](https://arxiv.org/abs/2404.06654), long context benchmark, but it hurt short context tasks like GSM8k, so they were disregarded. To reach 128k, they found that using **YARN** from the 64k checkpoint (instead of using a four-fold increase from 32k) produced better performance, which confirms the hypothesis that training closer to the desired inference length benefits performance.
 
+---
+
 While the mid-training data usually comes from web data, it also makes sense to use distilled reasoning tokens from a better model, as `Phi-4-Mini-Reasoning` did from `DeepSeek-R1`. Upon the base model, distilled mid-training increased benchmark scores like AIM24 by 3x, MATH-500 by 11 points, and GPQA-D by almost 6 points. SmolLM3 also does distilled mid-training. They considered datasets including reasoning tokens from DeepSeek-R1 (4M samples) and QwQ-32B (1.2M samples) but decide to delay using the [Mixture of Thoughts](https://huggingface.co/datasets/open-r1/Mixture-of-Thoughts) dataset until the final SFT mix. They found that it almost always makes sense to perform some amount of mid-training if the base model hasn't already seen lots of reasoning data during pre-training, because they noticed that `/no_think` reasoning mode also had improvements on reasoning benchmarks.
 
 # post-training
@@ -344,6 +346,8 @@ Most post-training pipelines start with **supervised fine-tuning (SFT)** because
 Dataset curation for SFT is important; datasets might seem great on paper, but models trained on those datasets may end up overindexing on certain domains, such as science. To this end, Hugging Face curated a data mixture with ~100k examples and 76.1M tokens, mostly consisting of instruction following, reasoning, and steerability for both think and non-think modes. Importantly, *data should be paired across modes* because otherwise, there is not an indication of when to give a concise answer or use extended reasoning.
 
 For training, there are other considerations as well: full finetuning vs more parameter efficient methods like LoRA or QLoRA, specialized kernels like FlashAttention or the likes of SonicMoE for more efficient compute usage, masking the loss for only assistant tokens, the type of parallelism needed, learning rate tuning, and sequence length tuning to match the distribution of data to speed up training (more useful for larger datasets).
+
+---
 
 In Intellect-3, Prime splits SFT into two stages: **general reasoning SFT** and **agentic SFT**. In the first, they use datasets consisting of math, code, science, tooling, chat, and instruction splits from [Nemotron's post-training dataset](https://huggingface.co/datasets/nvidia/Nemotron-Post-Training-Dataset-v1) and [AM-DeepSeek-R1-0528-Distilled](https://huggingface.co/datasets/a-m-team/AM-DeepSeek-R1-0528-Distilled) for a total of 9.9B tokens. In the second stage, they target agentic behavior, tool use, and long-horizon control (gpt-oss-120b also targets agentic behavior and tool use), using a mix of open-source agentic datasets like [SWE-Swiss](https://github.com/zhenyuhe00/SWE-Swiss) and synthetically-generate datasets from the Environments Hub using DeepSeek-R1. Besides serving the purpose of fine-tuning for agentic behavior, this stage also has the effect of pushing the model toward longer effective context lengths. Using **context parallelism**, they scaled from a 65K context window to 98K. 
 
@@ -419,7 +423,17 @@ $$
 
 where $\mathcal{M}(k)=k$ if $k \in [\alpha, \beta]$ and $0$ otherwise. The purpose of $\mathcal{M}$ is to account for the off-policy nature between the training policy and the inference policy such that they don't diverge significantly for each token. This is the idea behind **importance sampling**, where rollouts come from the inference policy, but we are optimizing for the training policy. Prime uses the default $\alpha = 0.5, \beta = 5$. $\alpha$ and $\beta$ need not be symmetric in the multiplicative sense. One reason for this is under the rare instance when $\pi_\text{infer}$ is small (large $k$), a tighter $\beta$ would clip the high-entropy tokens, which would make learning dynamics worse.
 
-DeepSeek-R1-Zero stands out as an exception compared to other models because it cold-starts RL (specifically, GRPO to save training costs) on reasoning tasks without any supervised data. The reward system uses two types of rewards: **accuracy rewards** based on correctness of the response and **format rewards** that enforce the model to put its thinking process between thinking tags. It obtains robust reasoning capabilities using pure RL, which validates the ability to learn reasoning and generalize effectively.
+---
+
+DeepSeek-R1-Zero stands out as an exception compared to other models because it cold-starts RL (specifically, GRPO to save training costs) on reasoning tasks without any supervised data. The reward system uses two types of rewards: **accuracy rewards** based on correctness of the response and **format rewards** that enforce the model to put its thinking process between thinking tags. It obtains robust reasoning capabilities using pure RL, which validates the ability to learn reasoning and generalize effectively. Moreover, behaviors including reflection (re-evaluating previous steps) and exploring alternative approaches to problem-solving merge, which further enhanced reasoning.
+
+For DeepSeek-R1, they collect thousands of long CoT data to finetune the DeepSeek-V3-Base as the starting point for RL. From DeepSeek-R1-Zero, they learned that **readability** was an issue: responses sometimes mixed multiple languages or lacked markdown formatting for highlighting answers. They remedy the former by introducing a language consistency reward (portion of target language words in the CoT), and the latter by designing a readable pattern that includes a summary at the end of each response. They also perform a second RL stage aimed at improving the model's helpfulness and harmlessness while retaining reasoning capabilities. For helpfulness, they focus on emphasizing the utility and relevance of the final summary; for harmlessness, the evaluate the response to identify and mitigate any potential risk, biases, or harmful content.
+
+Impressively, they found that distilling DeepSeek-R1's outputs into smaller models like Qwen-32B significantly improved reasoning capabilities, even compared to large-scale RL, which further requires significantly more compute. Moreover, it shows that even while distillion strategies are effective and economical, we will increasingly require more powerful base models and larger-scale RL.
+
+<img src="/public/training/deepseek_distillation.png" alt="Comparison of DeepSeek-R1-distilled and RL Models on Reasoning-Related Benchmarks" style="width: 80%; display: block; margin: 0 auto;">
+
+*Figure 8*: Comparison of DeepSeek-R1-distilled and RL Models on Reasoning-Related Benchmarks. From [DeepSeek](https://arxiv.org/pdf/2501.12948).
 
 ### RLVR on hybrid reasoning models
 
@@ -448,6 +462,12 @@ Given these aforementioned algorithms, choosing between them can be hard; Huggin
 | Reinforcement learning | Best when you have verifiable rewards or tasks requiring multi-step reasoning/planning. Can be used with reward models, but there are challenges like reward-hacking, where the model takes advantage in weaknesses in the reward model. | Flexible and powerful, but costly and harder to stabilise; requires careful reward shaping. Supported in most post-training frameworks. | Mid to large models (20B+), where extra capacity lets them exploit structured reward signals. |
 
 And for DPO (semi-online and online), it is also possible to match GRPO using far less compute. Specifically, they found that semi-online DPO (with syncing between the trainer and the generator every 100 steps) was generally the best compared to semi-online DPO with sync every 10 steps, online DPO, and GRPO.
+
+### limitations
+
+DeepSeek shares other experimental methods when developing DeepSeek-R1 that ultimately failed. **Monte Carlo Tree Search** (MCTS), inspired by [AlphaGo](https://arxiv.org/abs/1712.01815) and [AlphaZero](https://arxiv.org/abs/1712.01815), was implemented to test enhancing test-time compute scalability. This breaks answers into smaller parts to allow the model to explore the solution space systematically. To do this, they prompted the model to generate tags corresponding to reasoning steps necessary. The problem is that **token generation exists in an expoentially larger search space** compared to chess. So, they set a max extension limit for each node, but leads to model getting stuck in local optima. Moreover, training a fine-grained value model is difficult, also due to complexities of token generation.
+
+They also explored **process reward models**, which rewards intermediate thoughts in multi-step tasks. DeepSeek acknolwedges thre elimitations: defining a fine-gain step in general reasoning is difficult, determining whether the current intermediate step is difficult (LLM-as-judge might not yeild satisfactory results), and it leads to reward hacking becuase the model would optimize for the appearance of good reasoning without doing the underlying work.
 
 # behaviors and safety
 
@@ -482,9 +502,7 @@ Before the main training run starts, ensure the infrastructure is ready. This in
 
 **Evals** are also deceptively time-consuming (Allen Institute spent roughly 20% on compute on evals), so ensuring automation and logging (not just evaluation scores, but also throughput, loss, gradient norm, and node health) is crucial. 
 
-## resolving mysteries
-
-### vanishing throughput 
+## vanishing throughput 
 
 HuggingFace observed a ~40% drop in throughput (14k to 8k tokens/sec/GPU) after a few hours of starting the main run. The issue came from data storage; their cluster uses a network-attached storage with a "keep-hot" caching model that stores frequently accessed files and evicts "cold" files to third-party S3. With 24TB of training data, the storage was pushed to its limit, so it evicted dataset shards mid-training. This meant fetching them back and creating stalls that slowed throughput. 
 
@@ -492,21 +510,21 @@ The first fix came in the form of swapping the storage method by reserving a spa
 
 Testing again, they found smaller but still prominent drops in throughput. After experimenting with individual nodes that yielded the same result, they focused on the change in training steps and found that smaller step counts resulted in smaller throughput drops. The `nanotron` dataloader they were using was growing the lookup table making the training step to the next chunk of tokens to read instead of keeping it bounded or precomputed. Stored in global memory, the growing table causes allocation failures and page faults/worse cache locality. So, they switched to `Tokenizedbytes` dataloader, solving the throughput issue.
 
-### noisy loss
+## noisy loss
 
 However, the loss curve for SmolLM3 looked more noisy. They found the issue with the dataloader because it reads sequences sequentially for each document. Without **shuffling of sequences**, batches are no longer representative of the overall data distribution, increasing gradient variance. Also, a long file (e.g. code) would supply many consecutive sequences that would also spike loss. To fix, they reshuffled the tokenized sequences offline; an alternative was changing the dataloader to do random access, which has both higher memory usage and slower runtime.
 
-### tensor parallelism
+## tensor parallelism
 
 After two days and 1T tokens, evals showed that with a similar recipe, SmolLM2 (1.7B) was more performant at the same stage in training as SmolLM3 was. The team found the issue with **tensor parallelism**: the weights of SmolLM2 fit on a single GPU, whereas for SmolLM3, they had to be shared across 2 GPUs.
 
 Further, the two TP ranks were initialised with the same random seed instead of different seeds, which causes similar activations/gradients, a loss of diversity of features, and lower convergence.
 
-### multi-client orchestrator
+## multi-client orchestrator
 
 Inference throughput should scale linearly with the number of nodes used. However, Prime found that the standard multi-node data-parallel strategy provided by vLLM didn't deliver this because as nodes increased, throughput plateaued. They abstracted the multi-client orchestrator so that each inference mode is deployed on an independent server (runs its own vLLM engine and scheduler, manages its own KV cache and batches its own requests), and the orchestrator maintains one client per node (avoids single-shared queue bottleneck). Groups rollout requests are distributed across clients according to round-robin scheduling, which keeps utilization balanced.
 
-### the usual suspects
+## the usual suspects
 
 There are a few common culprits for training instabilities: high learning rate, bad data, data-parameter state interactions ([spikes can come from specific combinations of data batches and model parameter states](https://arxiv.org/abs/2204.02311)), poor initialisation ([OLMo2](https://arxiv.org/abs/2501.00656) revealed that $\mathcal{N}(0, 0.02)$ can improve stability upon scaled initialisation), and precision (eww, not fp16).
 
