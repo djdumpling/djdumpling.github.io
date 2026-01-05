@@ -2,7 +2,7 @@
 title: "a paper a day keeps the rust away"
 date: 2026-12-31
 ongoing: true
-tokens: "~4.9k"
+tokens: "~6.5k"
 reading_time: 15
 ---
 
@@ -16,7 +16,7 @@ $$
 \mathbf{x}_{l+1} = \mathbf{x}_l + \mathcal{F}(\mathbf{x}_l, \mathcal{W}_l)
 $$
 
-where $\mathbf{x}\_{l}, \mathbf{x}\_{l+1}$ are the input/output of the $l^\text{th}$ layer, respectively, and $\mathcal{F}$ denotes the residual function. **Hyper-connections**, popularized by [Zhu et al., 2024](https://arxiv.org/abs/2409.19606), added learnable mappings that instead of carrying $\mathbf{x}\_l$, carries a bundle of $n$ parallel residual streams defined by
+where $\mathbf{x}\_{l}, \mathbf{x}\_{l+1}$ are the input/output of the $l^\text{th}$ layer, respectively, and $\mathcal{F}$ denotes the residual function. **Hyper-connections**, popularized by [Zhu et al., 2024](https://arxiv.org/abs/2409.19606), added learnable mappings that instead of carrying $\mathbf{x}\_l$, carry a bundle of $n$ parallel residual streams defined by
 
 $$
 \mathbf{x}_{l+1} = \mathcal{H}_l^\text{res}\mathbf{x}_l + \left(\mathcal{H}_l^\text{post}\right)^\top\mathcal{F}(\mathcal{H}_l^\text{pre}\mathbf{x}_l, \mathcal{W}_l)
@@ -72,7 +72,7 @@ Across many benchmarks like GSM8k, HellaSwag, and MMLU, 27B with mHC outperforms
 
 # 1/2: recursive language models
 
-From the Prime Intellect team, [this blog](https://www.primeintellect.ai/blog/rlm) advocates for **recursive language models** (RLMs) as the paradigm of 2026 due to its context management ability, an important characteristic as long context grows in importance. **Context rot** is the phenomenon that LLM capabilities are reduced as context grows in size, so current TUI systems use scaffolding like file systems and context compression via LLM summarization at regular intervals. Another approach is **context folding**, whose goal is to create a continual, growing rollout while managing its own context window. One promising method, which the Prime team believes to be the simplest and most flexible, are [RLMs](https://arxiv.org/abs/2512.24601).
+From the Prime Intellect team, [this blog](https://www.primeintellect.ai/blog/rlm) advocates for **recursive language models** (RLMs) as the paradigm of 2026 due to their context management ability, an important characteristic as long context grows in importance. **Context rot** is the phenomenon that LLM capabilities are reduced as context grows in size, so current TUI systems use scaffolding like file systems and context compression via LLM summarization at regular intervals. Another approach is **context folding**, whose goal is to create a continual, growing rollout while managing its own context window. One promising method, which the Prime team believes to be the simplest and most flexible, are [RLMs](https://arxiv.org/abs/2512.24601).
 
 The RLM allows an LLM to use a persistent Python REPL to inspect and transform its input data, and to call sub-LLMs from within that Python REPL. This avoids the issue of ingesting potentially huge input data like PDFs, datasets, or videos, because instead of loading them into the model's context, it can be called through the REPL, and it allows the LLM to search, filter, and transform the context using Python functionality. Also, the ability to spawn sub-LLMs with specified input data to perform work also helps in situations which require large context sizes.
 
@@ -83,7 +83,7 @@ The RLM allows an LLM to use a persistent Python REPL to inspect and transform i
 Prime has already incorporated RLMs into $\mathtt{verifiers}$ and $\mathtt{prime-rl}$ as well as created several RLM-based environments on their Environments Hub. There are a number of details involved:
 1. **sub-LLM calls can be parallelized** via an `llm_batch` function
 2. **any tools given by the environment are usable only by the sub-LLMs**. This allows the main RLM to delegate the work that requires tools instead of seeing all of the tool-outputed tokens.
-3. **the RLM is made aware of installed packages**, and any pip package an be installed. Code execution occurs in isolated sandboxes.
+3. **the RLM is made aware of installed packages**, and any pip package can be installed. Code execution occurs in isolated sandboxes.
 4. **the RLM provides an answer in a Python variable**. Particularly, an `answer` dictionary is instantiated by `answer = {"content": "", ready: False}` where `content` is a "scratchpad" which the LLM can edit/delete over multiple turns, and `ready` is a boolean indicating the rollout end and if the answer can be extracted from `content`.
 
 Additionally, a prompt and extra input data can be given. The prompt is injected into the RLM's context window, whereas the input data can be accessed via the REPL.
@@ -101,7 +101,7 @@ They ablate the RLM on four environments using `GPT-5-mini` (initial tests show 
 
 `_ENV_TIPS` include specifying consistent facts across sources in DeepDive, specifying chunked context and prompt writing in Oolong, and specifying writing into and printing from `answer["content"]` to iterate in verbatim-copy.
 
-The RLM scaffold improves reward on Oolong and verbatim-copy, but not on DeepDive without tips and MathPython. The former can be explained by the poor usage of scaffolding, and the tips of splitting the question into smaller problems solvable by sub-LLMs helps significantly. The latter can be explained since the RLM allows for the same behavior for solving the environment as the LLM (access to Python tools and same libraries), so the RLM is overfitting to the benchmark using a standard Python tool. Both of these could be solved by training. Time spent for RLM (+tips) increases across the board. This can be attributed to an increase total token budget, inefficient thinking, and extra tool-calling. 
+The RLM scaffold improves reward on Oolong and verbatim-copy, but not on DeepDive without tips and MathPython. The former can be explained by the poor usage of scaffolding, and the tips of splitting the question into smaller problems solvable by sub-LLMs helps significantly. The latter can be explained since the RLM allows for the same behavior for solving the environment as the LLM (access to Python tools and same libraries), so the RLM is overfitting to the benchmark using a standard Python tool. Both of these could be solved by training. Time spent for RLM (+tips) increases across the board. This can be attributed to an increased total token budget, inefficient thinking, and extra tool-calling. 
 
 They also found that the main model context length is much lower when using sub-LLMs, especially in DeepDive. As a consequence, the main model token efficiency for DeepDive when using RLM (+tips) is nearly 4.5-6x that of just an LLM. In Oolong, results don't show the expected significant increase due to API rejections of long Oolong prompts, and they are only seen by the RLM. math-python and verbatim-copy's token efficiency are hurt since the former causes the RLM to think inefficiently and poorly, whereas in the latter, the RLM has to call a tool to give its response whereas the LLM one-shots the answer. On the other hand, in Needle in Haystack, the total number of tokens is reduced a lot for the RLM. However, while the LLM's tokens are almost all spent on prefilling, the RLM's is spent decoding via writing code and providing its answer.
 
@@ -111,13 +111,13 @@ They also found that the main model context length is much lower when using sub-
 
 Prime hypothesizes that the true potential of RLMs will be unlocked after RL training, which they plan to do, starting with small models. Some ideas they have on improving implementation include:
 1. **mutable recursive depth**: currently, depth is fixed at 1. It should be possible to have depth=0 (just like a normal LLM with a Python REPL with input data and access to user-added tools; this would help with math-python, for example), or depth>1 so that sub-LLMs can further call sub-LLMs.
-2. **customization**: faciliating users defining custom functions for the RLM to use in its REPL as well as adding descriptions for packages without re-writing the entire prompt.
+2. **customization**: facilitating users defining custom functions for the RLM to use in its REPL as well as adding descriptions for packages without re-writing the entire prompt.
 3. **context compression multiple assistant-user turns** should be a natural part of the RLM
 4. **multi-modal support** and custom data-types
 
 # 1/3: bloom, tooling for automated behavioral evaluations
 
-From the Anthropic Alignment team, [this blog](https://alignment.anthropic.com/2025/bloom-auto-evals/) open sources **Bloom**, an open-source, agentic tool for automated behaviorial evaluations of researcher-specified traits, quantifying their severity and frequency across automatically generated scenarios.
+From the Anthropic Alignment team, [this blog](https://alignment.anthropic.com/2025/bloom-auto-evals/) open sources **Bloom**, an open-source, agentic tool for automated behavioral evaluations of researcher-specified traits, quantifying their severity and frequency across automatically generated scenarios.
 
 Bloom generates scenarios depending on the seed, a configurable file including information about the model, behavior description, example transcripts, and more. The researcher specifies the exact behavior and interaction type to be investigated, and using the seed, Bloom generates scenarios, to be human checked, to ensure they capture the intended behavior; this stage involves iteration on configuration options and agent prompts. Once all configurable options are fixed, the researcher can run large-scale evals.
 
@@ -127,8 +127,8 @@ Bloom generates scenarios depending on the seed, a configurable file including i
 
 More specifically, within Bloom, there are four stages:
 1. **Understanding**: based on the seed (specifically, the behavior description and possibly few-shot example transcripts), the agent digests the targeted behavior, how it manifests, why it matters, as well as summaries. This context is reused frequently to align the agent.
-	- Although this is more about of the seed configuration, another parameter is whether the evaluator knows the target model's identity, which is useful for measuring preferential bias.
-2. **Ideation**: the agent generates scenarios designed to illicit the targeted behavior. Each scenario is highly specified (situation, simulated user, system prompt, interaction environment, and an example of how the behavior might manifest)
+	- Although this is more about the seed configuration, another parameter is whether the evaluator knows the target model's identity, which is useful for measuring preferential bias.
+2. **Ideation**: the agent generates scenarios designed to elicit the targeted behavior. Each scenario is highly specified (situation, simulated user, system prompt, interaction environment, and an example of how the behavior might manifest)
     - Also specifies $n$ rollouts, web search or not, and diversity $d \in [0,1]$. The ideator generates $n \cdot d$ distinct scenarios, and then a variation agent expands those via perturbations to produce $n$ total evaluations.
 3. **Rollout**: scenarios are rolled out in parallel, where the agent simulates the user and tool responses until it successfully elicits the behavior (or reaches maximum number of turns). Using the metadata about the scenario, the system prompt and initial user message are also provided.
 	- Also specifies modality (conversational or simulated environment), the number of times to roll out each scenario, and whether to simulate a user
@@ -146,7 +146,7 @@ They also found that
 - As a judge model, Sonnet 4 scored extremely consistently whereas GPT-5's judge standard deviation grew roughly linearly, achieving upwards of a standard deviation=3 for an average behavior presence score of ~5.8.
 - To validate the use of the meta-judge, they evaluated Sonnet 4 multiple times while varying the diversity parameter and found that the meta-judge's diversity ratings correlated well with the configured diversity.
 - When ideating using single-turn political scenarios and analyzing/classifying them over topic, ideological charge, realism, and diversity, the choice of the ideation model heavily influences the scenario distribution. Using GPT 5 or activating web search causes queries to be mostly neutral, Grok 4 generates more democratically charged queries, and Claude Opus 4.1 is more balanced among all models, reasoning modes, and features tested.
-- Sonnet 4.5 is the least bias when it comes to self-preference, and enabling high reasoning effort can rough the elicitation rate of self-preferential bias from 0.29 on medium down to 0.13.
+- Sonnet 4.5 is the least biased when it comes to self-preference, and enabling high reasoning effort can reduce the elicitation rate of self-preferential bias from 0.29 on medium down to 0.13.
 - Rankings among models were mostly robust to changes in few-shot examples ($p=0.02$) and conversation length ($p=0.06$), but more sensitive to evaluator reasoning effort ($p=0.21$).
 
 Bloom works best in measuring subjective behaviors like sycophancy, bias, and deception, but is less suitable in cases where verifiers would be used. Moreover, Bloom's dynamic nature is a strength for exploring diverse scenarios, but is weaker when needing precise control like word-level changes or maintaining identical conditions across runs. Lastly, models can learn to recognize when they are being evaluated, and Claude models have especially high awareness rates, which could worsen if Bloom-generated evaluations become part of future training data.
@@ -167,7 +167,7 @@ This adaptive capability allows much more thorough exploration than static evalu
 
 ---
 
-The auditor agent required extensive iterative refinement. Early versions fell into predictable patterns: asking leading questions, creating obviously artificial scenarios, or giving up after initial refusals. Failures occurred in both directions. Overly pushy auditors browbeating targets into behaviors only interesting when organic, and overly passive auditors abandoning promising lines after a single setback. The rollback feature was initially underutilized; when targets refused, the auditor continued linearly rather than trying alternative framings. Interestingly, **extended thinking may not improve auditor capabilities**; in pilot tests with Claude Sonnet 4, extended thinking added 2-3x runtime without measurable performance improvement.
+The auditor agent required extensive iterative refinement. Early versions fell into predictable patterns: asking leading questions, creating obviously artificial scenarios, or giving up after initial refusals. Failures occurred in both directions: overly pushy auditors browbeating targets into behaviors only interesting when organic, and overly passive auditors abandoning promising lines after a single setback. The rollback feature was initially underutilized; when targets refused, the auditor continued linearly rather than trying alternative framings. Interestingly, **extended thinking may not improve auditor capabilities**; in pilot tests with Claude Sonnet 4, extended thinking added 2-3x runtime without measurable performance improvement.
 
 The simulated user messages exhibit detectable LLM quirks despite instructions to mimic human writing. Comparing against LMSYS Chat-1M revealed systematic overuse of certain adverbs: "actually" (43x more frequent), "curious" (233x), among others. Auditors generate 5.8x more questions per message and show 3.5x higher emotional intensity, suggesting areas for improving realism.
 
@@ -188,4 +188,4 @@ Some methodological findings:
 - Gemini 2.5 Pro as auditor had reliability issues: ~10% of transcripts showed the model thinking it was the target, and ~30% contained at least one malformed tool call.
 - Auditor performance is highly sensitive to prompt design; earlier experiments with different prompts resulted in o4-mini eliciting much more misaligned behaviors.
 
-Petri's auditor agents can be unrealistic, and detectable LLM quirks may tip off target models. The tool is better suited for exploratory discovery than precise measurement, and results are sensitive to auditor/judge model choice. Also, like in Bloom, Petri-generated transcripts enter training data, models may learn to recognize evaluation contexts. In conjunction with Bloom, both tools automate behavioral evaluation but in complementary ways; researchers might use Petri to surface novel concerning behaviors, then use Bloom to systematically measure their prevalence across model versions, making a Petri $\to$ Bloom pipeline very natural.
+Petri's auditor agents can be unrealistic, and detectable LLM quirks may tip off target models. The tool is better suited for exploratory discovery than precise measurement, and results are sensitive to auditor/judge model choice. Also, like in Bloom, if Petri-generated transcripts enter training data, models may learn to recognize evaluation contexts. In conjunction with Bloom, both tools automate behavioral evaluation but in complementary ways; researchers might use Petri to surface novel concerning behaviors, then use Bloom to systematically measure their prevalence across model versions, making a Petri $\to$ Bloom pipeline very natural.
