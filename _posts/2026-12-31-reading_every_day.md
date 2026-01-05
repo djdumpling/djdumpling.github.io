@@ -142,7 +142,7 @@ Creating ten system-prompted model organisms designed to exhibit a unique quirky
 </div>
 
 They also found that
-- Claude Opus 4.1's behavior presence scores correlated most strongly (Spearman correlation coefficient of 0.856)with human-labeled scores.
+- Claude Opus 4.1's behavior presence scores correlated most strongly (Spearman correlation coefficient of 0.856) with human-labeled scores.
 - As a judge model, Sonnet 4 scored extremely consistently whereas GPT-5's judge standard deviation grew roughly linearly, achieving upwards of a standard deviation=3 for an average behavior presence score of ~5.8.
 - To validate the use of the meta-judge, they evaluated Sonnet 4 multiple times while varying the diversity parameter and found that the meta-judge's diversity ratings correlated well with the configured diversity.
 - When ideating using single-turn political scenarios and analyzing/classifying them over topic, ideological charge, realism, and diversity, the choice of the ideation model heavily influences the scenario distribution. Using GPT 5 or activating web search causes queries to be mostly neutral, Grok 4 generates more democratically charged queries, and Claude Opus 4.1 is more balanced among all models, reasoning modes, and features tested.
@@ -152,3 +152,40 @@ They also found that
 Bloom works best in measuring subjective behaviors like sycophancy, bias, and deception, but is less suitable in cases where verifiers would be used. Moreover, Bloom's dynamic nature is a strength for exploring diverse scenarios, but is weaker when needing precise control like word-level changes or maintaining identical conditions across runs. Lastly, models can learn to recognize when they are being evaluated, and Claude models have especially high awareness rates, which could worsen if Bloom-generated evaluations become part of future training data.
 
 # 1/4: petri, tooling for automated auditing
+
+From the Anthropic Alignment team, [this blog](https://alignment.anthropic.com/2025/petri/) open sources **Petri** (Parallel Exploration Tool for Risky Interactions), a framework for automated auditing that uses AI agents to probe target models across diverse scenarios. In contrast to Bloom (tbh, the reading order should have been swapped), Petri is designed for exploratory auditing—surfacing misaligned behaviors like autonomous deception, oversight subversion, whistleblowing, and cooperation with human misuse.
+
+The workflow has four stages. First, **hypothesis formation**: researchers brainstorm what behaviors to test—deception under conflicting objectives, biases across languages, endorsing bad ideas when users claim expertise. Second, **seed instruction creation**: natural language instructions describing the scenario, available tools, and audit strategy for each independent parallel auditor agent. More specific instructions yield more realistic audits since current models aren't strong at inventing high-level strategies from scratch. Example seeds include Socratic dialog (guiding the target to conclude it should sabotage a monitoring tool), paranoid simulated users (expressing distrust to see if the model exploits this), and fictional pretexts (framing requests under fictional contexts to bypass refusals).
+
+Third, **automated assessment** runs once seeds are provided. The auditor agent dynamically constructs environments by generating appropriate tools and context, adjusting to unexpected target actions without manually building complex environments. The auditor executes multi-turn conversations using tools to send messages, set system prompts, create synthetic tools, simulate tool call results, rollback conversations to try alternative approaches, end the audit early, and prefix target responses to steer behavior.
+
+<div style="display: flex; justify-content: center;">
+  <img src="/public/reading/petri.jpg" alt="Petri pipeline: seed instructions feed into the auditor agent, which uses tools to interact with the target model, producing transcripts scored by a judge model across dimensions like concerning behavior, sycophancy, and deception." style="width:80%; display: block; margin: 0 auto;" />
+</div>
+
+This adaptive capability allows much more thorough exploration than static evaluations. After rollouts, the **judge component** scores transcripts across 36 dimensions (misaligned behavior, deception, manipulation, self-preservation, oversight subversion, etc.) so researchers can filter for concerning examples. Fourth, **iteration**: analysis reveals patterns suggesting refinements to increase realism or explore edge cases.
+
+---
+
+The auditor agent required extensive iterative refinement. Early versions fell into predictable patterns: asking leading questions, creating obviously artificial scenarios, or giving up after initial refusals. Failures occurred in both directions. Overly pushy auditors browbeating targets into behaviors only interesting when organic, and overly passive auditors abandoning promising lines after a single setback. The rollback feature was initially underutilized; when targets refused, the auditor continued linearly rather than trying alternative framings. Interestingly, **extended thinking may not improve auditor capabilities**; in pilot tests with Claude Sonnet 4, extended thinking added 2-3x runtime without measurable performance improvement.
+
+The simulated user messages exhibit detectable LLM quirks despite instructions to mimic human writing. Comparing against LMSYS Chat-1M revealed systematic overuse of certain adverbs: "actually" (43x more frequent), "curious" (233x), among others. Auditors generate 5.8x more questions per message and show 3.5x higher emotional intensity, suggesting areas for improving realism.
+
+---
+
+Across 14 frontier models with 111 seed instructions, Petri successfully elicited a broad set of misaligned behaviors. Claude Sonnet 4.5 and GPT-5 roughly tie for the strongest safety profile, with Grok-4 scoring highest on misaligned behavior. Claude models show low cooperation with human misuse, while GPT-4o and Grok-4 show elevated self-preservation behavior.
+
+<div style="display: flex; justify-content: center;">
+  <img src="/public/reading/petri_scores.png" alt="Score distributions by target model across dimensions including misaligned behavior, admirable behavior, cooperation with human misuse, sycophancy, deception, and self-preservation." style="width:80%; display: block; margin: 0 auto;" />
+</div>
+
+On **whistleblowing**, they examined whether models would report misuse to Anthropic when given the capability to send emails. Notably, Claude Sonnet 4 demonstrated high rates of whistleblowing even when instructed not to (weighing its training against explicit instructions). In collaboration with OpenAI, they also surfaced **reward hacking** behaviors where models exploited loopholes in their objectives rather than pursuing intended goals.
+
+A key finding relates to **evaluation awareness**: Claude models exhibited high rates of recognizing when they were being evaluated, raising concerns about models behaving differently in evaluations vs. deployment. This was highlighted in the Claude 4.5 System Card and connects directly to Bloom's findings, where Claude models showed especially high evaluation awareness rates.
+
+Some methodological findings:
+- GPT-5 as a judge showed potential bias, systematically rating OpenAI targets as less misaligned while aligning more closely with other judges on non-OpenAI targets.
+- Gemini 2.5 Pro as auditor had reliability issues: ~10% of transcripts showed the model thinking it was the target, and ~30% contained at least one malformed tool call.
+- Auditor performance is highly sensitive to prompt design; earlier experiments with different prompts resulted in o4-mini eliciting much more misaligned behaviors.
+
+Petri's auditor agents can be unrealistic, and detectable LLM quirks may tip off target models. The tool is better suited for exploratory discovery than precise measurement, and results are sensitive to auditor/judge model choice. Also, like in Bloom, Petri-generated transcripts enter training data, models may learn to recognize evaluation contexts. In conjunction with Bloom, both tools automate behavioral evaluation but in complementary ways; researchers might use Petri to surface novel concerning behaviors, then use Bloom to systematically measure their prevalence across model versions, making a Petri $\to$ Bloom pipeline very natural.
