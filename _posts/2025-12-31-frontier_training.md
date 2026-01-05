@@ -1,7 +1,7 @@
 ---
 title: "[WIP] frontier model training methodologies"
 date: 2026-01-01
-tokens: "~20.0k"
+tokens: "~22.0k"
 reading_time: 72
 ---
 
@@ -207,7 +207,7 @@ $$
 S_\text{max}^h = \frac1{\sqrt{d}} \max_{\mathbf{X} \in B} \max_{i, j} \mathbf{Q}_i^h \mathbf{K}_j^{h\top}
 $$
 
-Set $S_\text{max} = \max_h S_\text{max}^h$ and target thresohld $\tau$. The idea is to rescale $\mathbf{W}_k$ annd $\mathbf{W}_q$ whenever $S_\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S_\text{max}})$, one way it so clip all heads simultanously by
+Set $S_\text{max} = \max_h S_\text{max}^h$ and target thresohld $\tau$. The idea is to rescale $\mathbf{W}\_k$ annd $\mathbf{W}\_q$ whenever $S\_\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S\_\text{max}})$, one way it so clip all heads simultanously by
 
 $$
 \mathbf{W}_q^h \leftarrow \gamma^\alpha \mathbf{W}_q^h \quad \mathbf{W}_k^h \leftarrow \gamma^{1-\alpha} \mathbf{W}_k^h
@@ -224,7 +224,7 @@ O_t &\leftarrow \text{NewtonSchulz5}(B_t) \cdot \sqrt{\max(n,m)} \cdot 0.2 \\
 \end{align*}
 $$
 
-<img src="/public/training/muon_+clip.png" alt="Maximum logits for KimiK2 with MuonClip and tau=100." style="width: 75%; display: block; margin: 0 auto;">
+<img src="/public/training/muon_clip.png" alt="Maximum logits for KimiK2 with MuonClip and tau=100." style="width: 75%; display: block; margin: 0 auto;">
 *Figure 4*: Left: a mid-scale training run on a 9B active, 53B total MoE where attention logits diverge quickly. Right: maximum logits for KimiK2 with MuonClip and $\tau=100$, where max logits eventually decays to a stable range after ~30% of the training steps. From [Kimi K2](https://arxiv.org/pdf/2507.20534).
 
 ## learning rates 
