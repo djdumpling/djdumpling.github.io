@@ -189,3 +189,32 @@ Some methodological findings:
 - Auditor performance is highly sensitive to prompt design; earlier experiments with different prompts resulted in o4-mini eliciting much more misaligned behaviors.
 
 Petri's auditor agents can be unrealistic, and detectable LLM quirks may tip off target models. The tool is better suited for exploratory discovery than precise measurement, and results are sensitive to auditor/judge model choice. Also, like in Bloom, if Petri-generated transcripts enter training data, models may learn to recognize evaluation contexts. In conjunction with Bloom, both tools automate behavioral evaluation but in complementary ways; researchers might use Petri to surface novel concerning behaviors, then use Bloom to systematically measure their prevalence across model versions, making a Petri $\to$ Bloom pipeline very natural.
+
+# 1/5: LLMs for quantitative investment research
+
+From UCL and DWS, [this paper](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5934015) provides a practitioner-oriented guide to LLMs in quantitative investment research by examining three paradigms where LLMs are reshaping day-to-day workflows: **LLM Assistant**, **LLM Quant**, and **LLM Quantamental** (Augmented Financial Intelligence, or AFI).
+
+1. **LLM Assistant**: LLMs function as research assistants supporting literature synthesis, data exploration, code generation, and retrieval of institutional knowledge. This is the most immediate and widely adopted use case.
+2. **LLM Quant**: Models extract signals from text and multimodal data, generate features, and interface directly with numerical pipelines. This marks a structural shift from dictionary-based sentiment (bag-of-words, lexicons) to context-aware semantic extraction that maps unstructured text directly to economic impact.
+3. **LLM Quantamental (AFI)**: The most ambitious paradigm—scaling fundamental reasoning, converting analyst judgment and sector knowledge into structured datasets that quants can analyze systematically, and creating a bidirectional link between discretionary and systematic processes. LLMs translate complex model outputs into natural-language explanations for fundamental PMs, and conversely, convert qualitative insights into quantifiable signals.
+
+The paper situates current adoption within a hype cycle: pre-ChatGPT encoder-based models (2018-2022), innovation trigger (2022), rapid expansion (2023-2024), trough of disillusionment (2024), and selective integration (2025 onward).
+
+Before generative LLMs, quant researchers used encoder-based architectures like BERT and finance-specific variants (FinBERT, FinBART) for sentiment classification and named-entity recognition. These were deterministic, classification-oriented models suited for task-specific NLP. The shift to generative LLMs introduces context-aware language understanding, richer semantic extraction, and end-to-end impact modeling—replacing modular pipelines with unified models. Newer **reasoning models** (Claude 3.7 Sonnet, DeepSeek R1, Gemini 2.5) extend this further with structured, step-by-step problem solving for code generation and statistical reasoning.
+
+Two key infrastructure developments: **retrieval-augmented generation (RAG)** has become standard for grounding LLMs in proprietary financial data, reducing hallucinations and enabling real-time information integration. Additionally, **agentic workflows** combine LLM-powered agents that run scripts, query data, and produce draft research into coordinated multi-step processes (data preparation, backtesting, documentation) while keeping humans in control.
+
+---
+
+The paper emphasizes methodological challenges specific to quantitative finance:
+
+- **Temporal leakage**: LLMs trained on post-event data contaminate backtests. Model knowledge cut-offs create forward-looking bias—the model "knows" outcomes it shouldn't. Testing requires shifting dates, using artificial cut-offs, and checking whether anonymized inputs still produce event-specific predictions.
+- **Hallucination**: Particularly dangerous for financial claims where confident-sounding but fabricated facts can propagate into research.
+- **Numerical fragility**: LLMs fail at basic arithmetic, ratio computation, and accounting identity checks. Performance often depends on external tools (code interpreters), indicating weak native numerical reasoning. For tasks requiring arithmetic or aggregation, simpler models remain more reliable.
+- **Memorization artifacts**: Models may reconstruct firm names, dates, and identifiers from training data. Testing involves masking identifiers and adding small perturbations to detect reliance on memorized values.
+- **Reproducibility**: API models update silently, breaking research pipelines. Identical queries may yield different outputs across time. For reproducibility-critical work, local fixed-weight open-source models are preferable.
+- **Behavioral biases**: Models display systematic preferences for certain sectors (e.g., Technology) or size categories (large-cap), as well as contrarian/momentum biases and confirmation bias (failing to update beliefs when presented conflicting evidence).
+
+The paper provides an evaluation checklist for assessing LLM suitability: temporal integrity checks, memorization tests, numerical reasoning capability, perturbation sensitivity, and reproducibility verification. The decision rule is strict: an LLM is appropriate only when it delivers substantial, demonstrable out-of-sample improvements with no evidence of temporal leakage, memorization artifacts, systematic bias, or numerical fragility. For deterministic tasks (sentiment classification, tabular prediction, accounting-based signals), simpler task-specific models like FinBERT or GBDTs remain the more principled choice.
+
+The central thesis: LLMs are not reliable standalone forecasting tools. They already enhance signal extraction, shorten research cycles, and improve interpretability of modeling outputs—but as complementary cognitive tools that extend analytical capacity while preserving expert judgment, not as replacements for it.
