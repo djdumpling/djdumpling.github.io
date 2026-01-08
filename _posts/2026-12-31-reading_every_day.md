@@ -2,7 +2,7 @@
 title: "a paper a day keeps the rust away"
 date: 2026-12-31
 ongoing: true
-tokens: "~6.5k"
+tokens: "~9.9k"
 reading_time: 15
 ---
 
