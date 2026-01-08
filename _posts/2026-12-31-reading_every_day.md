@@ -231,3 +231,38 @@ A few, more reconcilable issues include
 In terms of decision making, an LLM is most appropriate when it delivers substantial, demonstrable out-of-sample improvements with no evidence of temporal leakage, memorization artifacts, systematic bias, or numerical fragility (among other challenges mentioned above). For deterministic tasks (sentiment classification, tabular prediction, accounting-based signals), simpler task-specific models like FinBERT, RoBERTa classifiers, or GBDTs remain more reliable.
 
 Overall, LLMs are not reliable (yet) standalone forecasting tools. They enhance signal extraction, shorten research cycles, and improve interpretability of modeling outputs, but as complementary cognitive tools that extend analytical capacity while preserving expert judgment.
+
+# 1/6: why reasoning models loop
+
+From MIT and Microsoft Research, [this paper](https://arxiv.org/pdf/2512.12895) investigates why reasoning models loop at low temperatures, identifying two mechanisms:
+1. **risk aversion due to hardness of learning**: when the correct progress-making action is hard to learn but an easy cyclic action is available, the model weights the latter more, causing looping at low temperatures.
+2. **inductive bias for temporally correlated errors**: transformers show an inductive bias towards looping because small estimation errors at decision points are correlated over time; when a similar decision point reappears, the model tends to reselect the previously favored actions, and under greedy decoding these errors amplify into loops.
+
+Using Qwen, Openthinker3, Phi-4, and Llama, they sample 20 responses for temperatures $\in \{0, 0.2, 0.4, 0.6, 0.8, 1.0\}$ on AIME 2024 and 2025, detecting looping via repeated $n$-grams appearing at least $k$ times ($n=30$, $k=20$ for reasoning models, $k=10$ for instruct). Key observations:
+1. all models loop at low temperatures; at temperature 0, Distill-1.5B looped 76% of the time.
+2. within a family, smaller models loop more; Distill-7B looped 49% and Distill-32B looped 37%.
+3. for distillation, students loop far more than teachers, pointing to **imperfect learning** as a key cause.
+4. harder AIME problems elicit more looping; they conjecture that for any model size, problems hard enough to induce looping exist.
+5. reasoning models loop when their instruct counterparts barely do, and RL training (Phi-4-Reasoning to Phi-4-Reasoning-Plus) doesn't significantly reduce looping.
+
+---
+
+To understand the mechanisms, they introduce a synthetic task using **star graphs** $G(k,d)$: a root node connected to $k$ children, each leading to a chain of $d$ nodes ending in a leaf. One child is the goal path. The teacher generates random walks where the model navigates from start to root, picks children, and either progresses toward leaves or backtracks. The start-root-start cycle is "looping" and reaching the goal leaf is "progress."
+
+For the **risk aversion mechanism**, they study $G(k,d)$ where distinguishing the goal child from non-goal children requires learning a hard mapping (children are labeled with random tokens, so the model must memorize which token corresponds to the goal). The model learns the easy "reset to start" action well but struggles with the hard "pick the goal child" action. Proposition 1 formalizes this: if an action $a^*$ is indistinguishable from $m$ alternatives due to learning difficulty, its learned probability diffuses across all $m+1$ options (roughly $1/(m+1)$ each), while the easy cyclic action retains its full mass. The result: at low temperature, the model repeatedly resets instead of making progress because the cyclic action has higher probability than any single progress-making action.
+
+They test two variants on $G(5,5)$: (1) **with exploration**, where the teacher sometimes explores non-goal paths, and (2) **without exploration**, where the teacher always picks the goal child. In both cases, low-temperature accuracy is poor (~20% without, ~35% with exploration at temperature 0). Increasing temperature to 1.0 improves accuracy (to ~55% and ~85%), but response lengths remain 2-3x longer than a perfect learner's. The shallower $G(5,3)$ graphs (orange) show near-perfect accuracy across all temperatures, confirming that the risk aversion mechanism is tied to problem difficulty.
+
+<div style="display: flex; justify-content: center;">
+  <img src="/public/reading/reasoning_graph.png" alt="Accuracy, looping count, and response length vs temperature for G(5,5) and G(5,3) with and without exploration. Deeper graphs show worse low-temperature accuracy and higher looping." style="width:80%; display: block; margin: 0 auto;" />
+</div>
+
+For the **temporally correlated errors mechanism**, they remove the hardness: all children are now easy to distinguish via unique tokens, but the teacher places equal (or near-equal) probability on multiple children at the root. Small estimation errors tilt the model toward a few options, and critically, these errors are correlated across time. When the model revisits the root after exploring a non-goal path and backtracking, it tends to pick the same children again rather than trying new ones. Under greedy decoding, these small correlated errors compound into loops. They test with **margin 0** (uniform over all $k$ children), **margin 0.05**, and **margin 0.1** (goal child gets higher probability). Even small margins dramatically reduce looping and response length because they break the symmetry, but at margin 0 the model achieves only ~20% accuracy at temperature 0 despite near-perfect accuracy being achievable.
+
+<div style="display: flex; justify-content: center;">
+  <img src="/public/reading/reasoning_margin.png" alt="Accuracy, looping count, and response length vs temperature for margins 0, 0.05, and 0.1. Higher margins break symmetry and reduce looping." style="width:80%; display: block; margin: 0 auto;" />
+</div>
+
+A key finding is **confidence buildup during looping**: once a loop begins, the model becomes increasingly confident in continuing it. Plotting the maximum next-token probability over decoding steps shows that after the loop starts, the top-1 probability steadily rises toward 1, making loops self-reinforcing and progressively harder to escape.
+
+Temperature reduces looping by promoting exploration, but it does not fix the underlying errors in learning. At higher temperatures, student models like OpenThinker-3 still produce substantially longer chains than their teachers (QwQ-32B), indicating that temperature is a **stopgap rather than a holistic solution**. The authors discuss training-time interventions (unlike-likelihood training, contrastive methods for isotropic representations, data-centric approaches) and raise a fundamental question: is randomness actually necessary for good reasoning, or does looping stem entirely from learning errors? The evidence suggests the latter; ideally, temperature would control exploration depth, not be required just to avoid degenerate output.
