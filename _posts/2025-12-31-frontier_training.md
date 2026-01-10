@@ -1,5 +1,5 @@
 ---
-title: "[WIP] frontier model training methodologies"
+title: "frontier model training methodologies"
 date: 2026-01-01
 tokens: "~22.0k"
 reading_time: 72

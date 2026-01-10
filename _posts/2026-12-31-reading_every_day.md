@@ -1,14 +1,14 @@
 ---
-title: "a paper a day keeps the rust away"
+title: "paper reading catalog"
 date: 2026-12-31
 ongoing: true
 tokens: "~9.9k"
 reading_time: 15
 ---
 
-Every day in 2026, I'll read an ML paper/blog. This is my running log of distillations, meant to be a learning archive for myself as well as a capsule of how the field evolves across 2026.
+A catalog of ML papers and blogs I've read so far in 2026, with distillations meant to be a learning archive for myself as well as a capsule of how the field evolves.
 
-# 1/1: manifold-constrained hyper-connections
+# 1: manifold-constrained hyper-connections
 
 From the DeepSeek team, [this paper](https://arxiv.org/pdf/2512.24880) explores how to enforce the identity mapping property intrinsic to residual connection (which otherwise causes training instability and restricted scalability) to hyper-connections via **manifold-constrained hyper-connections**. The structure of a single layer is
 
@@ -70,7 +70,7 @@ To cut memory, they don’t store most intermediate activations from the mHC ker
 ---
 Across many benchmarks like GSM8k, HellaSwag, and MMLU, 27B with mHC outperforms both the baseline and the 27B with HC. Moreover, mHC is very effective in large-scale scenarios, since there is minimum degradation in terms of loss with regards to compute and token count. As suggested by Sinkhorn-Knopp, mHC significantly enhanced propagation stability compared to HC by three orders of magnitude, from a maximum gain of nearly 3000 to approximately 1.6.
 
-# 1/2: recursive language models
+# 2: recursive language models
 
 From the Prime Intellect team, [this blog](https://www.primeintellect.ai/blog/rlm) advocates for **recursive language models** (RLMs) as the paradigm of 2026 due to their context management ability, an important characteristic as long context grows in importance. **Context rot** is the phenomenon that LLM capabilities are reduced as context grows in size, so current TUI systems use scaffolding like file systems and context compression via LLM summarization at regular intervals. Another approach is **context folding**, whose goal is to create a continual, growing rollout while managing its own context window. One promising method, which the Prime team believes to be the simplest and most flexible, are [RLMs](https://arxiv.org/abs/2512.24601).
 
@@ -115,7 +115,7 @@ Prime hypothesizes that the true potential of RLMs will be unlocked after RL tra
 3. **context compression multiple assistant-user turns** should be a natural part of the RLM
 4. **multi-modal support** and custom data-types
 
-# 1/3: bloom, tooling for automated behavioral evaluations
+# 3: bloom, tooling for automated behavioral evaluations
 
 From the Anthropic Alignment team, [this blog](https://alignment.anthropic.com/2025/bloom-auto-evals/) open sources **Bloom**, an open-source, agentic tool for automated behavioral evaluations of researcher-specified traits, quantifying their severity and frequency across automatically generated scenarios.
 
@@ -151,9 +151,9 @@ They also found that
 
 Bloom works best in measuring subjective behaviors like sycophancy, bias, and deception, but is less suitable in cases where verifiers would be used. Moreover, Bloom's dynamic nature is a strength for exploring diverse scenarios, but is weaker when needing precise control like word-level changes or maintaining identical conditions across runs. Lastly, models can learn to recognize when they are being evaluated, and Claude models have especially high awareness rates, which could worsen if Bloom-generated evaluations become part of future training data.
 
-# 1/4: petri, tooling for automated auditing
+# 4: petri, tooling for automated auditing
 
-From the Anthropic Alignment team, [this blog](https://alignment.anthropic.com/2025/petri/) open sources **Petri** (Parallel Exploration Tool for Risky Interactions), a framework for automated auditing that uses AI agents to probe target models across diverse scenarios. In contrast to Bloom (tbh, the reading order should have been swapped), Petri is designed for exploratory auditing—surfacing misaligned behaviors like autonomous deception, oversight subversion, whistleblowing, and cooperation with human misuse.
+From the Anthropic Alignment team, [this blog](https://alignment.anthropic.com/2025/petri/) open sources **Petri** (Parallel Exploration Tool for Risky Interactions), a framework for automated auditing that uses AI agents to probe target models across diverse scenarios. In contrast to Bloom (entry #3), Petri is designed for exploratory auditing—surfacing misaligned behaviors like autonomous deception, oversight subversion, whistleblowing, and cooperation with human misuse.
 
 The workflow has four stages. First, **hypothesis formation**: researchers brainstorm what behaviors to test—deception under conflicting objectives, biases across languages, endorsing bad ideas when users claim expertise. Second, **seed instruction creation**: natural language instructions describing the scenario, available tools, and audit strategy for each independent parallel auditor agent. More specific instructions yield more realistic audits since current models aren't strong at inventing high-level strategies from scratch. Example seeds include Socratic dialog (guiding the target to conclude it should sabotage a monitoring tool), paranoid simulated users (expressing distrust to see if the model exploits this), and fictional pretexts (framing requests under fictional contexts to bypass refusals).
 
@@ -190,7 +190,7 @@ Some methodological findings:
 
 Petri's auditor agents can be unrealistic, and detectable LLM quirks may tip off target models. The tool is better suited for exploratory discovery than precise measurement, and results are sensitive to auditor/judge model choice. Also, like in Bloom, if Petri-generated transcripts enter training data, models may learn to recognize evaluation contexts. In conjunction with Bloom, both tools automate behavioral evaluation but in complementary ways; researchers might use Petri to surface novel concerning behaviors, then use Bloom to systematically measure their prevalence across model versions, making a Petri $\to$ Bloom pipeline very natural.
 
-# 1/5: LLMs for quantitative investment research
+# 5: LLMs for quantitative investment research
 
 From UCL and DWS, [this paper](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5934015) provides a practitioner-oriented guide to LLMs in quantitative investment research, examining three paradigms where LLMs reshape day-to-day workflows: **LLM Assistant**, **LLM Quant**, and **LLM Quantamental** (Augmented Financial Intelligence, or AFI).
 
@@ -232,7 +232,7 @@ In terms of decision making, an LLM is most appropriate when it delivers substan
 
 Overall, LLMs are not reliable (yet) standalone forecasting tools. They enhance signal extraction, shorten research cycles, and improve interpretability of modeling outputs, but as complementary cognitive tools that extend analytical capacity while preserving expert judgment.
 
-# 1/6: why reasoning models loop
+# 6: why reasoning models loop
 
 From MIT and Microsoft Research, [this paper](https://arxiv.org/pdf/2512.12895) investigates why reasoning models loop at low temperatures, identifying two mechanisms:
 1. **risk aversion due to hardness of learning**: when the correct progress-making action is hard to learn but an easy cyclic action is available, the model weights the latter more, causing looping at low temperatures.
