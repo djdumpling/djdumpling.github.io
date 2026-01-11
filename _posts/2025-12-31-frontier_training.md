@@ -7,7 +7,7 @@ reading_time: 72
 
 How do labs train a frontier, multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925), Kimi's [Kimi K2](https://arxiv.org/pdf/2507.20534), and DeepSeek's [DeepSeek-R1](https://arxiv.org/pdf/2501.12948). This blog is an attempt towards distilling the techniques, motivations, and considerations used to train their models with an emphasis on training methodology over infrastructure.
 
-These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, Hermes 4, and DeepSeek (adding Kimi and Qwen soon). Also, these notes have not been thoroughly reviewed. Any errors are entirely my responsibility.
+These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, Hermes 4, DeepSeek, and Kimi. Also, these notes have not been thoroughly reviewed. Any errors are entirely my responsibility.
 
 While this blog explores some infrastructure-related ideas like in-flight weight updates and multi-client orchestrators, there are many other ideas mentioned throughout those posts/blogs like expert parallelism and quantization. HuggingFace writes more about gpt-oss-120b's infrastructure [here](https://huggingface.co/blog/faster-transformers).
 
@@ -207,7 +207,7 @@ $$
 S_\text{max}^h = \frac1{\sqrt{d}} \max_{\mathbf{X} \in B} \max_{i, j} \mathbf{Q}_i^h \mathbf{K}_j^{h\top}
 $$
 
-Set $S_\text{max} = \max_h S_\text{max}^h$ and target threshold $\tau$. The idea is to rescale $\mathbf{W}_k$ and $\mathbf{W}_q$ whenever $S_\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S_\text{max}})$, one way is to clip all heads simultaneously by
+Set $S_\text{max} = \max_h S_\text{max}^h$ and target threshold $\tau$. The idea is to rescale $\mathbf{W}\_k$ and $\mathbf{W}\_q$ whenever $S\_\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S\_\text{max}})$, one way is to clip all heads simultaneously by
 
 $$
 \mathbf{W}_q^h \leftarrow \gamma^\alpha \mathbf{W}_q^h \quad \mathbf{W}_k^h \leftarrow \gamma^{1-\alpha} \mathbf{W}_k^h
@@ -358,10 +358,10 @@ Prime also focuses on its deep research capabilities via their web search enviro
 They use 300k prompts, mostly STEM and coding from [WebInstruct-Verified](https://huggingface.co/datasets/TIGER-Lab/WebInstruct-verified), [rSTAR-Coder](https://arxiv.org/abs/2505.21297), and [DeepMath-103k](https://arxiv.org/abs/2504.11456) and apply deduplicating and filtering for prompts with >2k characters.
 
 Nous rejection samples against ~1k task-specific verifiers using [Atropos](https://nousresearch.com/introducing-atropos/). Some environments used to generate the dataset include
-- **Answer Format Training**: rewards succinctly-presented final answers, like $\mathtt{\backslash boxed\{\}}$ in LaTeX, but there are over 150 output formats sampled. The environment also enforces $\mathtt{<think>}$ and $\mathtt{</think>}$ delimiters.
+- **Answer Format Training**: rewards succinctly-presented final answers, like $\mathtt{\backslash boxed\{\}}$ in LaTeX, but there are over 150 output formats sampled. The environment also enforces `<think>` and `</think>` delimiters.
 - **Instruction Following**: leverages [RLVR-IFEval](https://huggingface.co/datasets/allenai/RLVR-IFeval) for sets of verifiable tasks with constraint instructions like "Every $n^\text{th}$ word of your response must be in French."
 - **Schema Adherence**: facilitates generation (producing a valid JSON object from natural language prompt and a schema) and editing (identifying and correcting validation errors within a malformed JSON object)
-- **Tool Use**: facilitates agentic behavior by training the model to generate reasoning and produce tool calls via the $\mathtt{<tool\_call>}$ token.
+- **Tool Use**: facilitates agentic behavior by training the model to generate reasoning and produce tool calls via the `<tool_call>` token.
 
 ### kimi k2
 
@@ -385,9 +385,11 @@ While deriving inspiration from the Qwen3 template, Intellect-3 always reasons (
 gpt-oss-120b uses the harmony chat template, which introduces "channels" that determine the visibility of each message. For example, `final` for answers shown to the user, `commentary` for tool calling, and `analysis` for CoT tokens. This allows the model to interleave tool calls with CoT.
 
 Hermes 4 adapts Llama 3's chat template by changing the assistant to a first-person identifier after identifying the sensitivity to the token used for the assistant's turn:
+
 $$
 \mathtt{<\lvert start\_header\_id\rvert>assistant<\lvert end\_header\_id\rvert>} \longrightarrow \mathtt{<\lvert start\_header\_id\rvert>me<\lvert end\_header\_id\rvert>}
 $$
+
 This results in markedly different behaviors, which is explored more in "behaviors and latent capabilities" subsection of "behaviors and safety" section.
 
 DeepSeek-R1-Zero's chat template looks very similar to others, but additionally includes $\mathtt{<answer></answer>}$ tags to provide the final answer.
