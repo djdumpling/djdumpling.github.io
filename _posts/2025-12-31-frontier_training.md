@@ -1,15 +1,15 @@
 ---
 title: "frontier model training methodologies"
 date: 2026-01-01
-tokens: "~22.0k"
+tokens: "~23.0k"
 reading_time: 72
 ---
 
-How do labs train a frontier, multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#wrapping-up-post-training), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925), Moonshot's [Kimi K2](https://arxiv.org/pdf/2507.20534), and DeepSeek's [DeepSeek-R1](https://arxiv.org/pdf/2501.12948). This blog is an attempt towards distilling the techniques, motivations, and considerations used to train their models with an emphasis on training methodology over infrastructure.
+How do labs train a frontier, multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925), Moonshot's [Kimi K2](https://arxiv.org/pdf/2507.20534), and DeepSeek's [DeepSeek-R1](https://arxiv.org/pdf/2501.12948). This blog is an attempt towards distilling the techniques, motivations, and considerations used to train their models with an emphasis on training methodology over infrastructure.
 
-These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#math-data) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, Hermes 4, DeepSeek, and Kimi. Also, these notes have not been thoroughly reviewed. Any errors are entirely my responsibility.
+These notes are largely structured off of Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, Hermes 4, DeepSeek, and Kimi. Also, these notes have not been thoroughly reviewed. Any errors are entirely my responsibility.
 
-While this blog explores some infrastructure-related ideas like in-flight weight updates and multi-client orchestrators, there are many other ideas mentioned throughout those posts/blogs like expert parallelism and quantization. HuggingFace writes more about gpt-oss-120b's infrastructure [here](https://huggingface.co/blog/faster-transformers).
+While this blog explores some infrastructure-related ideas like in-flight weight updates and multi-client orchestrators, there are many other ideas mentioned throughout those posts/blogs like expert parallelism and quantization. Hugging Face writes more about gpt-oss-120b's infrastructure [here](https://huggingface.co/blog/faster-transformers).
 
 ## general practices
 
@@ -24,7 +24,7 @@ While this blog explores some infrastructure-related ideas like in-flight weight
 
 # architecture and set-up
 
-Model families like DeepSeek, gpt-oss-120b, Kimi, OLMo, and SmolLM have vastly different architectures (dense vs MoE), attention mechanisms (MHA vs MLA vs GQA), position encodings (RoPE, partial RoPE, NoPE), among many others. Not all information about the models is publicly available, so some are chosen:
+Architecture decisions fundamentally determine a model's efficiency, capabilities, and training dynamics. Model families like DeepSeek, gpt-oss-120b, Kimi, and SmolLM have vastly different architectures (dense vs MoE), attention mechanisms (MHA vs MLA vs GQA), position encodings (RoPE, partial RoPE, NoPE), among many others. Not all information about the models is publicly available, so some are chosen:
 
 | | Kimi-K2 | gpt-oss-120b | OLMo 3 | SmolLM |
 |--|---------|---------|------|--------|
@@ -34,16 +34,16 @@ Model families like DeepSeek, gpt-oss-120b, Kimi, OLMo, and SmolLM have vastly d
 | Architecture | MoE | MoE | dense | dense|
 | Tokenizer | [tokenization_kimi](https://huggingface.co/moonshotai/Kimi-K2-Instruct/blob/main/tokenization_kimi.py#:~:text=kimi_k2,c2fee60%20verified) | [o200k_harmony](https://github.com/openai/tiktoken) | [cl_100k](https://github.com/openai/tiktoken) | Llama3|
 
-When choosing architecture, HuggingFace suggests following a decision tree such that if one of these is true, then to choose a dense architecture:
+When choosing architecture, Hugging Face suggests following a decision tree such that if one of these is true, then to choose a dense architecture:
 - memory-constrained (since MoEs must have all experts loaded)
 - new to LLM training (focus on basics)
 - tighter timeline (simpler training with well-documented recipes)
 
 ## attention
 
-To address the large KV-cache (an inference bottleneck and GPU memory hoarder) associated with MHA, researchers developed [multi-query attention](https://arxiv.org/abs/1911.02150) (MQA) and [grouped query attention](https://arxiv.org/abs/2305.13245) (GQA). In MQA, KV values are shared across all heads, but this comes at a cost of leaking attention capacity because heads can't store information specialized for that head's role. GQA softens this issue by sharing KV values across a small group of heads (e.g. 4). Another alternative is multi-latent attention (MLA) which stores a latent variable that can be decompressed/projected into KV values at runtime. This results in a KV-cache parameter count more comparable to GQA and performance stronger than MQA. 
+Multi-head attention (MHA) uses separate query, key, and value projections for each attention head, but this creates a large KV-cache that becomes an inference bottleneck and GPU memory hoarder. To address this, researchers developed [multi-query attention](https://arxiv.org/abs/1911.02150) (MQA) and [grouped query attention](https://arxiv.org/abs/2305.13245) (GQA). In MQA, KV values are shared across all heads, but this comes at a cost of leaking attention capacity because heads can't store information specialized for that head's role. GQA softens this issue by sharing KV values across a small group of heads (e.g. 4). Another alternative is multi-latent attention (MLA) which stores a compressed latent variable that can be decompressed/projected into KV values at runtime. The latent variable is typically much smaller than the full KV cache (often achieving 4-8x compression), and this results in a KV-cache parameter count more comparable to GQA while maintaining performance stronger than MQA. 
 
-When ablating (for variables that change the parameter count such as changing MHA to GQA, they occasionally adjust other hyperparameters to keep model sizes roughly the same), HuggingFace found that **GQA with small groups beats MHA** and that **MHA beats MQA and GQA with 16 groups**. Across benchmarks like HellaSwag, MMLU, and ARC, GQA with 2/4/8 groups does best.
+When ablating (for variables that change the parameter count such as changing MHA to GQA, they occasionally adjust other hyperparameters to keep model sizes roughly the same), Hugging Face found that **GQA with small groups beats MHA** and that **MHA beats MQA and GQA with 16 groups**. Across benchmarks like HellaSwag, MMLU, and ARC, GQA with 2/4/8 groups does best.
 
 ## document masking
 
@@ -51,70 +51,78 @@ When pre-training, a common consideration is **fixed sequence lengths** since tr
 
 Causal masking means that for unrelated files $A$ and $B$ in the same batch, the tokens in $B$ can attend to the tokens in $A$, which degrades performance. With **intra-document masking**, the attention mask is modified so tokens can only attend to previous tokens within the same document. Many papers have found benefits relating to [long-context extension](https://arxiv.org/abs/2407.21783) and [some short context benchmarks](https://arxiv.org/abs/2410.02660) as well as [shortening the average context length](https://arxiv.org/abs/2503.15450).
 
-When implementing document masking, HuggingFace saw small improvements on PIQA but otherwise no noticeable impact on short context tasks. But in line with aforementioned research, they observed that it became crucial for scaling from 4k to 64k tokens.
+<img src="/public/training/intra_document_masking.png" alt="Comparison of causal masking vs intra-document masking showing attention patterns" style="width: 75%; display: block; margin: 0 auto;">
+
+*Figure 1*: Comparison of causal masking (left) and intra-document masking (right). Causal masking allows tokens to attend to all preceding tokens regardless of document boundaries, while intra-document masking restricts attention to tokens within the same document. From [@PMinervini](https://x.com/PMinervini/status/1777596492351422866).
+
+When implementing document masking, Hugging Face saw small improvements on PIQA but otherwise no noticeable impact on short context tasks. But in line with aforementioned research, they observed that it became crucial for scaling from 4k to 64k tokens.
 
 ## embedding sharing
 
 Input embeddings (token-to-vector lookup) and output embeddings (hidden states to vocab logits) are typically represented as separate matrices, so the total embedding parameters are $2 \times \text{vocab size} \times \text{hidden dim}$. In small language models, this can account for up to 20% of total parameters, as is the case with `Llama 3.2 1B` (in larger models, the embeddings represent a much smaller fraction of the parameter count, only 3% in `Llama 3.1 70B`). The issue with tying them is that input/output embeddings still represent different geometries, and frequent tokens like "the" can dominate representation learning due to getting gradients from both the input stream and the predicted output. 
 
-HuggingFace found that on a 1.2B model, tied embeddings did comparably well despite having 18% fewer parameters (down from 1.46B), and that compared to an untied model also with 1.2B parameters (fewer layers), untied showed higher loss and lower downstream eval scores.
+<img src="/public/training/tied_embeddings.png" alt="Comparison of tied vs untied embedding architectures" style="width: 75%; display: block; margin: 0 auto;">
+
+*Figure 2*: Comparison of untied embeddings (separate input and output matrices) vs tied embeddings (shared matrix). Tied embeddings reduce parameter count while maintaining comparable performance. From [PyTorch Blog](https://pytorch.org/blog/advancing-low-bit-operators-in-pytorch-and-executorch-dynamic-kernel-selection-kleidiai-and-quantized-tied-embeddings/).
+
+Hugging Face found that on a 1.2B model, tied embeddings did comparably well despite having 18% fewer parameters (down from 1.46B), and that compared to an untied model also with 1.2B parameters (fewer layers), untied showed higher loss and lower downstream eval scores.
 
 ## positional encodings
 
 Without positional encoding, transformers have no sense of word order, akin to the bag of words idea. Initially, [absolute position embeddings](https://arxiv.org/abs/1706.03762) were used by learning a lookup table that mapped the position index to a vector added to token embeddings, but the maximum input sequence length was limited by the sequence length it was trained on. **Relative position encodings** followed since capturing distance between tokens matters more than capturing their absolute positions.
 
-The most commonly used technique is [rotary position embedding (RoPE)](https://arxiv.org/abs/2104.09864), which encodes relative position as rotation angles. Based on the dimensionality of the query/key vector, RoPE splits it into pairs (since they rotate in 2D space) and rotates depending on the absolute position of a token and a base frequency. During attention, the dot product between their rotated positions directly encodes their relative distance via the phase difference in their rotation angles, where tokens $x$ positions apart always maintain the same angular relationship. 
+The most commonly used technique is [rotary position embedding (RoPE)](https://arxiv.org/abs/2104.09864), which encodes position information by rotating query and key vectors in 2D planes. RoPE encodes relative position as rotation angles: based on the dimensionality of the query/key vector, RoPE splits it into pairs (since they rotate in 2D space) and rotates depending on the absolute position of a token and a base frequency. During attention, the dot product between their rotated positions directly encodes their relative distance via the phase difference in their rotation angles, where tokens $x$ positions apart always maintain the same angular relationship. 
 
 <img src="/public/training/rope.png" alt="RoPE positional encoding showing rotation of query/key pairs in 2D space" style="width: 75%; display: block; margin: 0 auto;">
 
-*Figure 1*: RoPE splits query/key vectors into pairs and rotates each pair by an angle proportional to position. From [Su et al., 2021](https://arxiv.org/abs/2104.09864).
+*Figure 3*: RoPE splits query/key vectors into pairs and rotates each pair by an angle proportional to position. From [Su et al., 2021](https://arxiv.org/abs/2104.09864).
 
-During pretraining, models are trained on shorter context lengths (similar ideas to document masking, and quadratic attention is expensive) to learn short range correlation between words. But as sequence length grows, the rotation angles grow via $\theta= \text{position} \times \frac1{\text{base}^{\frac{k}{\text{dim}/2}}}$. This can be fixed by increasing the base frequency as the sequence length increases using methods like [ABF](https://arxiv.org/abs/2309.16039) or [YaRN](https://arxiv.org/abs/2309.00071), which applies a more granular interpolation of frequencies on different components and includes other techniques like dynamic attention scaling and temperature adjustment. For extremely long contexts, YaRN does best, and in gpt-oss-120b, it was used to extend the context length of dense layers up to 131k tokens.
+During pretraining, models are trained on shorter context lengths (similar ideas to document masking, and quadratic attention is expensive) to learn short range correlation between words. But as sequence length grows, the rotation angles grow via $\theta= \text{position} \times \frac1{\text{base}^{\frac{k}{\text{dim}/2}}}$. This can be fixed by increasing the base frequency as the sequence length increases using methods like [ABF (Adaptive Base Frequency)](https://arxiv.org/abs/2309.16039) or [YaRN](https://arxiv.org/abs/2309.00071), which applies a more granular interpolation of frequencies on different components and includes other techniques like dynamic attention scaling and temperature adjustment. For extremely long contexts, YaRN does best, and in gpt-oss-120b, it was used to extend the context length of dense layers up to 131k tokens.
 
 More recently, with the emphasis on long contexts, [NoPE](https://arxiv.org/abs/2305.19466) (no position embedding) and [RNoPE](https://arxiv.org/abs/2501.18795), a hybrid method, have emerged. NoPE uses only causal masking and attention patterns, so it doesn't bump into the issue of extrapolating beyond training lengths but shows weaker performance on short context reasoning and knowledge-based tasks. RNoPE alternates applying RoPE and NoPE on attention blocks, where RoPE handles local context and NoPE helps with longer-range information retrieval. Another idea is Partial RoPE, which applies RoPE/NoPE within the same layer.
 
-HuggingFace ran ablations using RoPE, RNoPE (removing positional encoding every 4th layer), and RNoPE with document masking. They found that all achieve similar performance on short-context tasks, so they adopt RNoPE + document masking because it provides the foundation for long-context handling.
+Hugging Face ran ablations using RoPE, RNoPE (removing positional encoding every 4th layer), and RNoPE with document masking. They found that all achieve similar performance on short-context tasks, so they adopt RNoPE + document masking because it provides the foundation for long-context handling.
 
 ## attention for long contexts
 
 <img src="/public/training/attention.png" alt="Attention patterns comparison showing causal masking, chunked attention, sliding window attention, RoPE ABF, and DCA" style="width: 75%; display: block; margin: 0 auto;">
-*Figure 2*: five common types of attention. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
+*Figure 4*: five common types of attention. From [Hugging Face](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
 
 An alternative to adjusting positional encodings for long contexts is specifying the strength of which tokens can attend to one another. 
 
 - **Chunked Attention**: divides the sequence into fixed-sized chunks where tokens can only attend within their chunk. [Llama 4](https://ai.meta.com/blog/llama-4-multimodal-intelligence/) paired with RNoPE (specifically the RoPE layers) which also reduces the KV cache size per layer, but its performance on long context tasks degraded.
-- **Sliding Window Attention (SWA)**: every token can see up to $p$ positions back, creating a sliding window that maintains local context. Gemma 3 combined SWA with full attention every other layer.
-- **Dual Chunk Attention (DCA)**: $K$ tokens are chunked into $M$ groups. Within each group (like chunked attention), tokens attend normally. Between successive chunks, there is a local window to preserve locality, and more broadly, inter-chunk attention allows queries to attend to previous chunks with a capped relative position cap. Qwen-2.5 used DCA to support context windows of up to 1 million tokens.
+- **Sliding Window Attention (SWA)**: every token can see up to $p$ positions back, creating a sliding window that maintains local context. [Gemma 3](https://arxiv.org/abs/2503.19786) combined SWA with full attention every other layer.
+- **Dual Chunk Attention (DCA)**: $K$ tokens are chunked into $M$ groups. Within each group (like chunked attention), tokens attend normally. Between successive chunks, there is a local window to preserve locality, and more broadly, inter-chunk attention allows queries to attend to previous chunks with a capped relative position cap. [Qwen-2.5](https://arxiv.org/pdf/2412.15115) used DCA to support context windows of up to 1 million tokens.
 
 ## MoE
 
-MoEs (mixture of experts), analogous to our brain activating different regions for different tasks, provide an alternative to dense models due to only certain "experts" being used at inference time, saving lots of compute. The MoE works by replacing the feed forward layer with multiple MLPs (experts) and adding a learnable router before the MLPs to select the experts.
+MoEs (mixture of experts), analogous to our brain activating different regions for different tasks, provide an alternative to dense models. At inference, only certain "experts" are activated based on the input, dramatically reducing compute compared to dense models where all parameters are active. The MoE works by replacing the feed forward layer with multiple MLPs (experts) and adding a learnable router before the MLPs to select the experts. The router typically uses top-k gating, selecting the $k$ experts with highest affinity scores for each token, where $k$ is usually much smaller than the total number of experts (e.g., 8 out of 384).
 
 <img src="/public/training/moe.png" alt="MoE architecture" style="width: 75%; display: block; margin: 0 auto;">
-*Figure 3*: Comparison of dense architecture and MoE architecture. From [Sebastian Raschka](https://sebastianraschka.com/).
+*Figure 5*: Comparison of dense architecture and MoE architecture. From [Sebastian Raschka](https://sebastianraschka.com/).
 
 In general, for fixed number and size of active experts, increasing the total number of experts improves loss, and [high sparsity improves performance](https://arxiv.org/abs/2507.20534) and [benefits more from increasing compute](https://arxiv.org/abs/2507.17702). Recent models are much more sparse, with over 100 experts and around 10 active per token.
 
 To determine how large each expert should be, a common metric is granularity, defined by $G = 2 \cdot \frac{d_\text{model}}{d_\text{expert}}$, where a higher granularity corresponds to more experts with a smaller dimension; this can be intermediate as a number proportional to the experts needed to match the dense MLP width. Recent models have granularity anywhere from 2 (`gpt-oss-120b`) to 8 (`qwen3-next-80b-a3b`). [Ant Group](https://arxiv.org/pdf/2507.17702) showed that granularity doesn't significantly change loss but does drive **efficiency leverage** (the ratio of flops needed for an MoE to achieve the same loss as a dense model). And overall, MoEs present a good alternative to dense models in terms of compute for training and inference.
 
-**Shared experts** are always-on experts, which absorb the basic, recurring patterns so that other experts can more aggressively specialize; one is often enough (`deepseek-v2` uses two, which adds a bit of complexity).
+**Shared experts** are always-on experts, which absorb the basic, recurring patterns so that other experts can more aggressively specialize; one is often enough ([DeepSeek-V2](https://arxiv.org/abs/2405.04434) uses two, which adds a bit of complexity).
 
-**Load balancing** is crucial in that if it fails, not only do training and inference efficiency plummet, but so do effective learning capacity. This can be addressed by adding a **loss-based load balancer** (LBL) given by $\mathcal{L} = \alpha \sum_{i=1}^{N_r} f_i P_i$ where $\alpha$ determines the strength, $f_i$ is the fraction of tokens going through expert $i$, and $P_i$ is the probability mass that sums the probability of tokens going through an expert; so in perfect load balancing, $f_i=P_i=\frac1{N_r}$. Also, $\alpha$ should not be so large that routing uniformity overwhelms the primary training objective. These should be monitored using *global statistics*, not local statistics which may suffer from a local batch being narrow, biasing the routing statistics. 
+**Load balancing** is crucial in that if it fails, not only do training and inference efficiency plummet, but so do effective learning capacity. The routing mechanism typically uses **top-k gating**: for each token, the router computes affinity scores (often via a learned linear projection followed by softmax), selects the top $k$ experts, and routes the token to those experts. To ensure balanced expert utilization, this can be addressed by adding a **loss-based load balancer** (LBL) given by $\mathcal{L} = \alpha \sum_{i=1}^{N_r} f_i P_i$ where $\alpha$ determines the strength, $f_i$ is the fraction of tokens going through expert $i$, and $P_i$ is the probability mass that sums the probability of tokens going through an expert; so in perfect load balancing, $f_i=P_i=\frac1{N_r}$. Also, $\alpha$ should not be so large that routing uniformity overwhelms the primary training objective. These should be monitored using *global statistics*, not local statistics which may suffer from a local batch being narrow, biasing the routing statistics. 
 
-`deepseek-v3` does loss-free load balancing differently, by adding a bias term that is added to affinity scores going into the routing softmax.
+[DeepSeek-V3](https://arxiv.org/abs/2412.19437) does loss-free load balancing differently, by adding a bias term that is added to affinity scores going into the routing softmax.
 
 ## hybrid models
 
 Because transformers don't deal efficiently with long context while RNNs can, one idea is to combine both to get the best of both worlds. By dropping the softmax from the output for token $t$:
 
 $$
-\mathbf{o}_t = \sum_{j=1}^t \frac{\exp(\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j}{\sum_{l=1}^t \exp(\mathbf{q}_t^\top \mathbf{k}_l)} \Longrightarrow \mathbf{o}_t = \sum_{j=1}^t (\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j = \left(\sum_{j=1}^t \mathbf{v}_j \mathbf{k}_jk^\top\right)\mathbf{q}_t
+\mathbf{o}_t = \sum_{j=1}^t \frac{\exp(\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j}{\sum_{l=1}^t \exp(\mathbf{q}_t^\top \mathbf{k}_l)} \Longrightarrow \mathbf{o}_t = \sum_{j=1}^t (\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j = \left(\sum_{j=1}^t \mathbf{v}_j \mathbf{k}_j^\top\right)\mathbf{q}_t
 $$
 
 And by defining $S_t :=\sum_{j=1}^t \mathbf{k}_j \mathbf{v}_j^\top$, then we get a recurrent relation where $S_t$ summarizes all past $(k_j, v_j)$.
 
 $$
-S_t=S_{t-1}+\mathbf{k}_j \mathbf{v}_j^\top \Longrightarrow \mathbf{o}_t = S_t \mathbf{q}_t = S_{t-1}\mathbf{q}_t+\mathbf{v}_k\left(\mathbf{k}_j \mathbf{v}_j^\top\right)
+S_t=S_{t-1}+\mathbf{k}_t \mathbf{v}_t^\top \Longrightarrow \mathbf{o}_t = S_t \mathbf{q}_t = S_{t-1}\mathbf{q}_t+\mathbf{v}_t\left(\mathbf{k}_t^\top \mathbf{q}_t\right)
 $$
 
 While this gets us closer to an RNN-esque structure, in practice, softmax stabilizes training, and the linear form can cause instability without normalization. With RNNs, it is sometimes helpful to forget the past, via introducing a gate $\mathbf{G}_t$ for the previous state 
@@ -123,17 +131,19 @@ $$\mathbf{S}_t=\mathbf{G}_t \odot \mathbf{S}_{t-1} + \mathbf{v}_t\mathbf{k}_t^\t
 
 # stability
 
+Training stability is crucial for successful large-scale model training. Several techniques help prevent training failures, including regularization methods, careful initialization, and architectural choices. The following sections cover key stability mechanisms:
+
 ## $z$-loss
 
-$z$-loss is a regularization term added to the standard cross entropy loss that keeps logits from drifting to large magnitudes. By adding $\mathcal{L} = \lambda \cdot \log^2(Z) = \lambda \sum_{i=1}^V e^{z_i}$, representing the denominator in the softmax the loss now penalizes based on $\log(Z)$ which represents the overall logit scale. 
+$z$-loss is a regularization term added to the standard cross entropy loss that keeps logits from drifting to large magnitudes. The softmax denominator is $Z = \sum_{i=1}^V e^{z_i}$, and by adding $\mathcal{L} = \lambda \cdot \log^2(Z)$ to the loss, we penalize based on $\log(Z)$ which represents the overall logit scale. 
 
-On their 1B model, HuggingFace found that adding $Z$-loss didn't impact training loss or downstream performance, so they chose not to include it due to training overhead.
+On their 1B model, Hugging Face found that adding $Z$-loss didn't impact training loss or downstream performance, so they chose not to include it due to training overhead.
 
 ## removing weight decay from embeddings
 
 Despite being a regularization technique, weight decay being removed from embeddings can improve training stability. Weight decay causes embedding norm to decrease, but this can lead to larger gradients in earlier layers since the LayerNorm Jacobian has a $\frac1{\sigma}$ term (coming from normalization) which is inversely proportional to the input norm $\sigma$.
 
-HuggingFace tested this using a weight decay baseline, a no weight decay baseline, and another combining all previous adopted changes and found no significant loss or eval results, so they included no weight decay.
+Hugging Face tested this using a weight decay baseline, a no weight decay baseline, and another combining all previous adopted changes and found no significant loss or eval results, so they included no weight decay.
 
 ## qk norm
 
@@ -162,11 +172,11 @@ There are many strong existing tokenizers, like [GPT4's tokenizer](https://arxiv
 
 # optimizers and training hyperparameters
 
-Choosing optimizers and tuning hyperparameters is notoriously time-consuming. While we may be tempted to distill those from models of larger labs (albeit a useful prior), it may not fit the use case.
+Choosing optimizers and tuning hyperparameters is notoriously time-consuming and significantly impacts convergence speed and training stability. While we may be tempted to distill those from models of larger labs (albeit a useful prior), it may not fit the use case.
 
 ## adamW
 
-Despite being invented over 10 years ago, AdamW still stands the test of time. Adam (adaptive momentum estimation) updates weights individually based on an exponential weighted average of gradients $g_t$ and an exponential weighted average of squared gradients $g_t^2$, along with weight decay (the "W"): 
+Despite being invented over 10 years ago, AdamW still stands the test of time. Adam (adaptive momentum estimation) updates weights individually based on an exponential weighted average of gradients $g_t$ and an exponential weighted average of squared gradients $g_t^2$, along with weight decay (the "W"). The exponential moving averages provide adaptive learning rates per parameter: parameters with consistently large gradients get smaller effective learning rates (via the squared gradient term), while parameters with small or noisy gradients get larger effective learning rates. This adaptivity helps stabilize training and converge faster: 
 
 $$
 \begin{align*}
@@ -180,7 +190,7 @@ Even for modern LLMs, the hyperparameters remain largely unchanged: weight decay
 
 ## muon
 
-Unlike adamW which updates per-parameter, muon treats the weight matrix as a singular object and updates based on:
+Unlike AdamW which updates per-parameter, muon treats the weight matrix as a singular object and updates based on matrix-level operations. This approach reduces axis-aligned bias (where optimization favors certain coordinate directions) and encourages exploration of directions that would otherwise be suppressed. By considering the entire weight matrix structure rather than individual parameters, muon can better capture correlations between parameters:
 
 $$
 \begin{align*}
@@ -191,7 +201,7 @@ O_t &\leftarrow \text{NewtonSchulz5}(B_t) \\
 \end{align*}
 $$
 
-where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) and [this blog](https://kellerjordan.github.io/posts/muon/) describe the algebra of it in more detail as well as why the coefficients are what they are, but we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because $f \circ f \circ \cdots f(x)$ converges to the sign function. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
+where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) and [this blog](https://kellerjordan.github.io/posts/muon/) describe the algebra of it in more detail as well as why the coefficients are what they are. The Newton-Schulz iteration approximates the matrix sign function: we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because iteratively applying $f$ (i.e., $f \circ f \circ \cdots f(x)$) converges to the sign function, which normalizes the singular values. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
 
 But since muon operates at the matrix level, applying NewtonSchulz requires access to the full gradient tensor. One method uses an *overlapping round-robin scheme* where each rank is responsible for gathering all gradient matrices corresponding to its index and applying muon locally. Since FSDP expects sharded gradients/updates, and every rank has its shard of the muon-updated gradient, then the optimizer step can proceed normally. However, this issues lots of overlapping collectives across many matrices which breaks at scale.
 
@@ -199,7 +209,7 @@ The alternative that Prime adapts is based on **all-to-all collectives** which d
 
 ---
 
-Kimi K2 introduces **MuonClip**, a stabilization technique based on muon that prevents exploding attention logits. Other strategies include [logit soft-cap](https://arxiv.org/abs/2408.00118), which applies $\tanh$ clipping to the pre-softmax logits, or QK norm, which applies LayerNorm to the QK matrices. However, these lead to issues of the scaled dot-product exploding (making bounding too late) and distorted gradients around regions where the model is unstable in logit soft-cap, and key matrices are not materialized during inference (projected from a latent variable). 
+Building on Muon, Kimi K2 introduces **MuonClip**, a stabilization technique that prevents exploding attention logits, which is a common failure mode in large-scale training. Other strategies include [logit soft-cap](https://arxiv.org/abs/2408.00118), which applies $\tanh$ clipping to the pre-softmax logits, or QK norm, which applies LayerNorm to the QK matrices. However, these lead to issues of the scaled dot-product exploding (making bounding too late) and distorted gradients around regions where the model is unstable in logit soft-cap, and key matrices are not materialized during inference (projected from a latent variable). 
 
 For each attention head $h$, consider $\mathbf{Q}^h$, $\mathbf{K}^h$, and $\mathbf{V}^h$. For a batch $B$ and input representation $\mathbf{X}$, define the **max logit** as a per-head scalar to be the maximum input to softmax
 
@@ -213,7 +223,7 @@ $$
 \mathbf{W}_q^h \leftarrow \gamma^\alpha \mathbf{W}_q^h \quad \mathbf{W}_k^h \leftarrow \gamma^{1-\alpha} \mathbf{W}_k^h
 $$
 
-where the $\gamma$ exponentials enforce multiplicative weight decay for $\mathbf{Q}^h \mathbf{K}^{h\top}$; commonly, $\alpha=0.5$ to ensure equal scaling to queries and keys. However, not all heads exhibit exploding logits, which motivates a per-head clipping based on $\gamma_h = \min(1, \frac{\tau}{S_\text{max}^h})$, which is more straightforward for MHA but less for MLA. They apply clipping only on $\mathbf{q}^C$ and $\mathbf{k}^C$ (head-specific components) scaled by $\sqrt{\gamma_h}$, $\mathbf{q}^R$ (head-specific rotary) scaled by $\gamma_h$, and $\mathbf{Q}^R$ (shared rotary). Besides that, the main muon algorithm is modified to match Adam RMS and enable weight decay. For each weight $\mathbf{W} \in \mathbb{R}^{n \times m}$:
+where the $\gamma$ exponentials enforce multiplicative weight decay for $\mathbf{Q}^h \mathbf{K}^{h\top}$; commonly, $\alpha=0.5$ to ensure equal scaling to queries and keys. However, not all heads exhibit exploding logits, which motivates a per-head clipping based on $\gamma_h = \min(1, \frac{\tau}{S_\text{max}^h})$, which is more straightforward for MHA but less for MLA. The challenge with MLA is that keys are projected from a latent variable rather than materialized directly, so clipping must be applied to the latent-to-key projection weights and the latent variable itself. They apply clipping only on $\mathbf{q}^C$ and $\mathbf{k}^C$ (head-specific components) scaled by $\sqrt{\gamma_h}$, $\mathbf{q}^R$ (head-specific rotary) scaled by $\gamma_h$, and $\mathbf{Q}^R$ (shared rotary). Besides that, the main muon algorithm is modified to match Adam RMS and enable weight decay. For each weight $\mathbf{W} \in \mathbb{R}^{n \times m}$:
 
 $$
 \begin{align*}
@@ -225,16 +235,16 @@ O_t &\leftarrow \text{NewtonSchulz5}(B_t) \cdot \sqrt{\max(n,m)} \cdot 0.2 \\
 $$
 
 <img src="/public/training/muon_clip.png" alt="Maximum logits for KimiK2 with MuonClip and tau=100." style="width: 75%; display: block; margin: 0 auto;">
-*Figure 4*: Left: a mid-scale training run on a 9B active, 53B total MoE where attention logits diverge quickly. Right: maximum logits for KimiK2 with MuonClip and $\tau=100$, where max logits eventually decays to a stable range after ~30% of the training steps. From [Kimi K2](https://arxiv.org/pdf/2507.20534).
+*Figure 6*: Left: a mid-scale training run on a 9B active, 53B total MoE where attention logits diverge quickly. Right: maximum logits for KimiK2 with MuonClip and $\tau=100$, where max logits eventually decays to a stable range after ~30% of the training steps. From [Kimi K2](https://arxiv.org/pdf/2507.20534).
 
 ## learning rates 
 
 Learning rates have their own life cycle: they warmup (typically 1%-5% of training steps for short trainings, but large labs fix the warmup steps) from zero to avoid chaos, then anneal after settling into a good minimum. [Cosine annealing](https://arxiv.org/abs/1608.03983) was the go-to scheduler, but it's also inflexible due to the cosine period needing to match the total training duration. Alternatives include [warmup-stable-decay (WSD)](https://arxiv.org/abs/2404.06395) and [multi-step](https://arxiv.org/abs/2401.02954); in the last x% of tokens, the former linearly decays the learning rate whereas multi-step does discrete drops. For WSD, typically 10-20% is allocated for the decay phase, matching cosine annealing; in multi-step, 80/10/10 also matches cosine annealing while 70/15/15 and 60/20/20 can outperform it. Deepseek-v3 used cosine annealing between the decay drops and added a constant phase before the final sharp step.
 
 <img src="/public/training/learning_rates.png" alt="Learning rate schedules comparison" style="width: 75%; display: block; margin: 0 auto;">
-*Figure 5*: Comparison of learning rate schedules: cosine annealing, WSD, and multi-step. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
+*Figure 7*: Comparison of learning rate schedules: cosine annealing, WSD, and multi-step. From [Hugging Face](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
 
-HuggingFace's ablations (on their 1B model) showed that WSD tended to underperform cosine annealing before WSD's decay began, but once it entered its decay phase, WSD showed nearly linear improvement in both loss and eval metrics, which allowed it to catch up to cosine annealing by the end. After running further ablations on the learning rate, the HuggingFace team settled on 2e-4; increasing led to potential increased risk of instability during long training runs. Kimi K2 also uses WSD: the first 10T were trained with 2e-4 learning rate after a 500 step warm up, then 5.5T tokens with cosine decay from 2e-4 to 2e-5.
+Hugging Face's ablations (on their 1B model) showed that WSD tended to underperform cosine annealing before WSD's decay began, but once it entered its decay phase, WSD showed nearly linear improvement in both loss and eval metrics, which allowed it to catch up to cosine annealing by the end. After running further ablations on the learning rate, the Hugging Face team settled on 2e-4; increasing led to potential increased risk of instability during long training runs. Kimi K2 also uses WSD: the first 10T were trained with 2e-4 learning rate after a 500 step warm up, then 5.5T tokens with cosine decay from 2e-4 to 2e-5.
 
 WSD schedule especially helps with ablations since it does not require restarting the same run for different token counts, since we can retrain only the end portions (learning rate decay) while maintaining the front portion.
 
@@ -242,7 +252,7 @@ WSD schedule especially helps with ablations since it does not require restartin
 
 There is a [critical batch size](https://arxiv.org/abs/1812.06162): too small and we may be underutilizing compute, but too large and the model needs more tokens to reach the same loss. Still, larger batch sizes give more efficient gradient estimations, and are preferred. 
 
-A useful proxy is that for optimizers like AdamW or Muon, if the batch size increases by a factor of $k$ then the learning rate should scale up by $\sqrt{k}$. This is because the covariance shrinks by a factor of $k$, and based on the SGD parameter update $\Delta w = -\eta g_B$ , so $\text{Var}(\Delta w) \sim \eta^2 \frac{\Sigma}{B}$  where $B$ is the original batch size, so $\eta \sim \sqrt{k}$. 
+A useful proxy is that for optimizers like AdamW or Muon, if the batch size increases by a factor of $k$ then the learning rate should scale up by $\sqrt{k}$. Intuitively, larger batches provide more stable gradient estimates (lower variance), so we can afford larger step sizes. Mathematically, the covariance shrinks by a factor of $k$, and based on the SGD parameter update $\Delta w = -\eta g_B$, we have $\text{Var}(\Delta w) \sim \eta^2 \frac{\Sigma}{B}$ where $B$ is the original batch size. To maintain the same update variance, we need $\eta \sim \sqrt{k}$. 
 
 As training progresses, the critical batch size grows. Initially, since the model is making large updates, $\lvert \lvert g \rvert \rvert^2$ is large so the model should have a small critical batch size. After the model stabilizes, larger batches become more effective. This motivates the idea of *batch size warmup*. 
 
@@ -253,15 +263,15 @@ Scaling laws (e.g. [Chinchilla scaling laws](https://arxiv.org/abs/2203.15556)) 
 First, $C \approx 6 \cdot N \cdot D$ where $C$ is the compute budget measured in FLOPs, N is the number of parameters, and $D$ is the number of training tokens. The 6 is derived from empirical estimates for the number of FLOPs per parameter.
 
 <img src="/public/training/deepseek.png" alt="Scaling curves of batch size and learning rate" style="width: 75%; display: block; margin: 0 auto;">
-*Figure 6*: Scaling curves of batch size and learning rate. From [DeepSeek](https://arxiv.org/abs/2407.05065).
+*Figure 8*: Scaling curves of batch size and learning rate. From [DeepSeek](https://arxiv.org/abs/2407.05065).
 
 Initially, [scaling laws](https://arxiv.org/abs/2001.08361) indicates that language model size was the main constraint, leading to a GPT-3 model with 175B parameters but only trained on 300B tokens. A [re-derivation](https://arxiv.org/abs/2203.15556) found that training duration could improve gains more than size; they found that compute-optimal training of GPT-3 should have consumed 3.7T tokens.
 
-However, scaling laws are almost never religiously followed. Recently, labs have been "overtraining" models beyond the training durations suggested by scaling laws (e.g. Qwen 3 being trained on 36T tokens). Moreover, "compute-optimal" scaling laws don't account for larger models being more expensive after training due to inference. To that end, HuggingFace decided to train on 11T tokens on a 3B model. For comparison, Kimi K2's 1T model comprised of 15.5T pre-training tokens.
+However, scaling laws are almost never religiously followed. Recently, labs have been "overtraining" models beyond the training durations suggested by scaling laws (e.g. Qwen 3 being trained on 36T tokens). Moreover, "compute-optimal" scaling laws don't account for larger models being more expensive after training due to inference. To that end, Hugging Face decided to train on 11T tokens on a 3B model. For comparison, Kimi K2's 1T model comprised of 15.5T pre-training tokens.
 
 ---
 
-Kimi K2's scaling law analysis showed that increase in **sparsity**, the ratio of total number of experts to the number of activated experts, yields substantial performance improvements for fixed FLOPs, so they increase the number of MoE experts to 384 (256 in DeepSeek-V3) while decreasing attention heads to 64 (128 in DeepSeek-V3) to reduce computational overhead during inference. They settle on a sparsity of 48, activating 8 out of 384 experts and found that decreasing the attention heads from 128 to 64 sacrificed a validation loss ranging from 0.5% to 1.2%, but a 45% decrease in inference FLOPs.
+While general scaling laws provide guidance, Kimi K2's scaling law analysis revealed model-specific insights. They showed that increase in **sparsity**, the ratio of total number of experts to the number of activated experts, yields substantial performance improvements for fixed FLOPs, so they increase the number of MoE experts to 384 (256 in DeepSeek-V3) while decreasing attention heads to 64 (128 in DeepSeek-V3) to reduce computational overhead during inference. They settle on a sparsity of 48, activating 8 out of 384 experts and found that decreasing the attention heads from 128 to 64 sacrificed a validation loss ranging from 0.5% to 1.2%, but a 45% decrease in inference FLOPs.
 
 # data curation and pre-training
 
@@ -291,8 +301,8 @@ Kimi K2 uses **data rephrasing** in knowledge and math domains. For knowledge, t
 
 ## pre-training data
 
-### smolLM3
-HuggingFace's goal was to build a multi-lingual model that also excels on math and coding. In stage 1 of their multi-stage training, they use a 75/12/10/3 split among english web data, multilingual web data, code data, and math data.
+### SmolLM3
+Hugging Face's goal was to build a multi-lingual model that also excels on math and coding. In stage 1 of their multi-stage training, they use a 75/12/10/3 split among english web data, multilingual web data, code data, and math data.
     
 - **English web data**: they ablate on a mixture of FineWeb-Edu (educational and STEM benchmarks) and DCLM (common sense reasoning), two strong open English web datasets at the time of training, finding that a 60/40 or a 50/50 split was best. Later, they add in other datasets including [Pes2o](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/pes2o), [Wikipedia & Wikibooks](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/wiki), and [StackExchange](https://huggingface.co/datasets/HuggingFaceTB/stackexchange_2025_md). 
 - **Multilingual web data**: five European languages were chosen, with data from FineWeb2-HQ. Smaller portions of other languages, like Chinese or Arabic, were chosen to allow others to do continual pretraining of SmolLM3. Ultimately, they found that 12% multilingual content in the web mix was best.
@@ -305,7 +315,7 @@ For new stages (using a checkpoint at around 7T out of the total 11T tokens), th
 
 Using data from [DCLM](https://arxiv.org/abs/2406.11794) and FineWeb Nous first does semantic deduplication using embeddings at a cosine similarity of 0.7, and then use an LLM-as-judge to filter out incomplete or ill-formatted messages. Then, they process pre-training data through **DataForge**, a graph-based synthetic data generator, which allows for large and complex structures. By taking a random walk through a directed acyclic graph where nodes implement a mapping from struct $\to$ struct such that if there is an edge from node $A$ to node $B$, the postconditions guaranteed by $A$ must satisfy the preconditions of $B$. QA pairs are generated using this workflow with intermediary transformations into other mediums (e.g. a wikipedia article into a rap song), question generation and then questions/answers annotations using an LLM-as-judge to grade the instruction and response. Also, to find a covering set of data-scarce domains of special interest, they recursively (*depth-first-search*) generate a taxonomy of subdomains where the leaves are prompts and the LLM enumerates $n$ subdomains to form a partition.
 
-It's a bit unclear whether the data included was used in pre-training and post-training, so please refer to the data section in the post-training section for more.
+The DataForge-generated data is used in both pre-training and post-training stages, with specific details provided in the post-training data section below.
 
 # mid-training
 
@@ -321,7 +331,7 @@ Kimi K2 decays learning rate from 2e-5 to 7e-6, training on 400B tokens with 4k 
 
 ---
 
-While the mid-training data usually comes from web data, it also makes sense to use distilled reasoning tokens from a better model, as `Phi-4-Mini-Reasoning` did from `DeepSeek-R1`. Upon the base model, distilled mid-training increased benchmark scores like AIM24 by 3x, MATH-500 by 11 points, and GPQA-D by almost 6 points. SmolLM3 also does distilled mid-training. They considered datasets including reasoning tokens from DeepSeek-R1 (4M samples) and QwQ-32B (1.2M samples) but decide to delay using the [Mixture of Thoughts](https://huggingface.co/datasets/open-r1/Mixture-of-Thoughts) dataset until the final SFT mix. They found that it almost always makes sense to perform some amount of mid-training if the base model hasn't already seen lots of reasoning data during pre-training, because they noticed that `/no_think` reasoning mode also had improvements on reasoning benchmarks.
+While the mid-training data usually comes from web data, another powerful approach is to use distilled reasoning tokens from a better model, as `Phi-4-Mini-Reasoning` did from `DeepSeek-R1`. Upon the base model, distilled mid-training increased benchmark scores like AIM24 by 3x, MATH-500 by 11 points, and GPQA-D by almost 6 points. SmolLM3 also does distilled mid-training. They considered datasets including reasoning tokens from DeepSeek-R1 (4M samples) and QwQ-32B (1.2M samples) but decide to delay using the [Mixture of Thoughts](https://huggingface.co/datasets/open-r1/Mixture-of-Thoughts) dataset until the final SFT mix. They found that it almost always makes sense to perform some amount of mid-training if the base model hasn't already seen lots of reasoning data during pre-training, because they noticed that `/no_think` reasoning mode also had improvements on reasoning benchmarks.
 
 # post-training
 
@@ -400,7 +410,7 @@ Most post-training pipelines start with **supervised fine-tuning (SFT)** because
 
 Dataset curation for SFT is important; datasets might seem great on paper, but models trained on those datasets may end up overindexing on certain domains, such as science. To this end, Hugging Face curated a data mixture with ~100k examples and 76.1M tokens, mostly consisting of instruction following, reasoning, and steerability for both think and non-think modes. Importantly, *data should be paired across modes* because otherwise, there is not an indication of when to give a concise answer or use extended reasoning.
 
-For training, there are other considerations as well: full finetuning vs more parameter efficient methods like LoRA or QLoRA, specialized kernels like FlashAttention or the likes of SonicMoE for more efficient compute usage, masking the loss for only assistant tokens, the type of parallelism needed, learning rate tuning, and sequence length tuning to match the distribution of data to speed up training (more useful for larger datasets).
+For training, there are other considerations as well: full finetuning vs more parameter efficient methods like LoRA or QLoRA, specialized kernels like FlashAttention (which reduces memory usage by recomputing attention on-the-fly during the backward pass, trading compute for memory) or the likes of SonicMoE for more efficient compute usage, masking the loss for only assistant tokens, the type of parallelism needed, learning rate tuning, and sequence length tuning to match the distribution of data to speed up training (more useful for larger datasets).
 
 ---
 
@@ -410,7 +420,7 @@ In Hermes 4, they also do two stages of SFT, both around reasoning. They noted t
 
 ## capabilities
 
-The HuggingFace team found issues in generalising single-turn reasoning data to multi-turn data, stemming from the difficulty in differentiating `/think` and `/no_think` tags between turns. So, they constructed a new dataset, IFThink, using `Qwen3-32B` that **augmented single-turn instructions into multi-turn exchanges** with verifiable instructions and reasoning traces; this dramatically improved multi-turn reasoning.
+The Hugging Face team found issues in generalising single-turn reasoning data to multi-turn data, stemming from the difficulty in differentiating `/think` and `/no_think` tags between turns. So, they constructed a new dataset, IFThink, using `Qwen3-32B` that **augmented single-turn instructions into multi-turn exchanges** with verifiable instructions and reasoning traces; this dramatically improved multi-turn reasoning.
 
 **Masking user turns** is another design choice, since otherwise loss is computed on user queries as well, sacrificing producing high-quality assistant responses for predicting user queries. In practice, masking doesn't have a huge impact on downstream evals, but still yielded improvements by a few points in most cases.
 
@@ -419,7 +429,7 @@ The HuggingFace team found issues in generalising single-turn reasoning data to 
 **Sequence packing** is another choice that improves training efficiency. The idea is similar to intra-document masking where sequences are packed into a batch so as to not waste padding compute via excessive padding tokens, but with the additional constraint of minimizing truncation of documents across batch boundaries. 
 
 <img src="/public/training/sequence_packing.png" alt="Sequence packing comparison" style="width: 75%; display: block; margin: 0 auto;">
-*Figure 7*: Comparison of sequence packing strategies. From [HuggingFace](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
+*Figure 9*: Comparison of sequence packing strategies. From [Hugging Face](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
 
 In the image, the last packing method uses the **best-fit decreasing** (implemented in TRL), where each sequence is placed in the batch that minimizes the remaining space after insertion. Another method, which Hermes-4 uses, is **first-fit decreasing**, which places a sequence in the first batch that has enough remaining space, which achieves $>99.9\%$ batch efficiency.
 
@@ -446,7 +456,7 @@ While preference optimization is generally thought as a medium to improve helpfu
 There are typically three hyperparameters that affect training dynamics:
 1. **Learning rate**: when tested across sizes of being 2x to 200x smaller than the learning rate used in SFT, Zephyr7B found that using a 10x smaller lr provided best performance improvement, and SmolLM3 ended using a 20x smaller lr (1e-6) to balance performance between `/think` and `/no_think` modes.
 2. **$\beta$**: ranging from 0 to 1, it controls whether to stay closer to the reference model (loss $\beta$) or closer to the preference data (higher $\beta$). If too large, it could erase capabilities from the SFT checkpoint, so $\beta$ values around 0.1 or higher are usually preferable
-3. **preference dataset size**: when tested with sizes from 2k to 340k pairs, performance largely remained stable, although HuggingFace noted performance drops in extended thinking for datasets beyond 100k pairs. To that point, don't be afraid to create your own preference data, especially with how cheap inference has become.
+3. **preference dataset size**: when tested with sizes from 2k to 340k pairs, performance largely remained stable, although Hugging Face noted performance drops in extended thinking for datasets beyond 100k pairs. To that point, don't be afraid to create your own preference data, especially with how cheap inference has become.
 
 ### algorithms
 
@@ -455,7 +465,7 @@ Besides vanilla **DPO** ([direct preference optimization](https://arxiv.org/abs/
 2. **ORPO** ([odds ratio preference optimization](https://arxiv.org/abs/2403.07691)): incorporates PO with SFT via an integrated odds ratio term to the cross-entropy loss. This makes it more computationally efficient since there is no need to use a separate reference model that is used in DPO to compute $r_\theta(x,y)$.
 3. **APO** ([anchored preference optimization](https://arxiv.org/abs/2408.06266)): rather than just optimizing the difference between $y^+$ and $y^-$ in DPO, **APO-zero** forces $y^+$ up and $y^-$ down while **APO-down** pushes both $y^+, y^-$ down (useful if the quality of $y^+$ is below that of the current model)
 
-HuggingFace found that APO-zero had the best overall out-of-domain performance.
+Hugging Face found that APO-zero had the best overall out-of-domain performance.
 
 ## RL
 
@@ -463,12 +473,12 @@ SFT and PO can hit ceilings because fundamentally, they optimize to produce outp
 
 In RLHF (**RL from human feedback**), human comparisons are provided, and a *reward model* is trained to predict the human preference signal. Then, the policy is fine-tuned with RL to maximize the learned reward. This way, RLHF does **on-policy optimization** since it does rollouts using the current policy used in training and updates based on the reward given by the reward model. This also allows RLHF to discover behaviors not present in the preference dataset. 
 
-In RLVR (**RL with verifiable rewards**), popularised by DeepSeek-R1, *verifiers* check whether a model's output matches criteria (e.g. whether it produced the correct math answer or passed all code unit tests). Then, the policy is fine-tuned to produce more verifiably-correct outputs.
+In RLVR (**RL with verifiable rewards**), popularised by DeepSeek-R1, *verifiers* check whether a model's output matches criteria (e.g. whether it produced the correct math answer or passed all code unit tests). Then, the policy is fine-tuned to produce more verifiably-correct outputs. While RLHF requires human preference labels, RLVR uses automated verifiers (e.g., code test suites, math solvers) for reward signals, making it more scalable and objective.
 
 Despite policy optimization algorithms are commonly on-policy, like GRPO, in practice, to maximize throughput, they may actually be slightly off-policy. For example, in GRPO, without freezing the policy, generating multiple rollout batches and doing optimizer updates sequentially makes only the first batch on-policy and all subsequent batches off-policy; this is known as **in-flight updates**.
 
 <img src="/public/training/in_flight_updates.png" alt="Pipeline RL with in-flight weight updates" style="width: 75%; display: block; margin: 0 auto;">
-*Figure 8*: Comparison of conventional RL and in-flight updating. From [Pipeline RL paper](https://arxiv.org/abs/2509.19128).
+*Figure 10*: Comparison of conventional RL and in-flight updating. From [Pipeline RL paper](https://arxiv.org/abs/2509.19128).
 
 In the context of Intellect-3, which uses a CPU orchestrator between two clusters (one for training and one for inference), the orchestrator continuously polls the trainer to update the inference pool once a new policy is available, and the inference pool temporarily halts generation to update the weights, then continues with rollouts. In this way, a long rollout could be generated by multiple policies, but they limit this by a `max_off_policy_steps` parameter to limit policy drift. Also, they implement [IcePop](https://www.emergentmind.com/topics/icepop) to stabilize MoE training:
 
@@ -476,11 +486,11 @@ $$
 \mathcal{J}_{\text{IcePop}}(\theta)=\mathbb{E}_{x \sim \mathcal{D}, \{y_i\}_{i=1}^N \sim \pi_{\text{infer}}}\left[\frac1{\sum_{i=1}^N \lvert y_i \rvert} \sum_{i=1}^N \sum_{t=1}^{\lvert y_i \rvert}\left[\mathcal{M}\left(\frac{\pi_{\text{train}}(y_{i, t} \mid x, y_{i, <t>};\theta)}{\pi_{\text{infer}}(y_{i, t} \mid x, y_{i, <t>};\theta_{\text{old}})}; \alpha, \beta\right)\hat{A}_{i,t}\right] \right]
 $$
 
-where $\mathcal{M}(k)=k$ if $k \in [\alpha, \beta]$ and $0$ otherwise. The purpose of $\mathcal{M}$ is to account for the off-policy nature between the training policy and the inference policy such that they don't diverge significantly for each token. This is the idea behind **importance sampling**, where rollouts come from the inference policy, but we are optimizing for the training policy. Prime uses the default $\alpha = 0.5, \beta = 5$. $\alpha$ and $\beta$ need not be symmetric in the multiplicative sense. One reason for this is under the rare instance when $\pi_\text{infer}$ is small (large $k$), a tighter $\beta$ would clip the high-entropy tokens, which would make learning dynamics worse.
+where $\mathcal{M}(k)=k$ if $k \in [\alpha, \beta]$ and $0$ otherwise. The purpose of $\mathcal{M}$ is to account for the off-policy nature between the training policy and the inference policy such that they don't diverge significantly for each token. When the importance weight $k$ falls outside $[\alpha, \beta]$, $\mathcal{M}$ clips it to 0, effectively ignoring that token's contribution to the gradient. This is the idea behind **importance sampling**, where rollouts come from the inference policy, but we are optimizing for the training policy. Prime uses the default $\alpha = 0.5, \beta = 5$. $\alpha$ and $\beta$ need not be symmetric in the multiplicative sense. One reason for this is under the rare instance when $\pi_\text{infer}$ is small (large $k$), a tighter $\beta$ would clip the high-entropy tokens, which would make learning dynamics worse.
 
 ---
 
-Kimi K2 adapts the policy optimization used in K1.5
+Kimi K2 adapts a different policy optimization approach from their previous model K1.5:
 
 $$
 L_\text{RL}(\theta) = \mathbb{E}_{x \sim \mathcal{D}}\left[\frac1{K} \sum_{i=1}^K\left[\left(r(x, y_i) - \overline{r}(x) - \tau \log\frac{\pi_\theta(y_i | x)}{\pi_\text{old}(y_i | x)}\right)^2\right]\right]
@@ -494,27 +504,27 @@ To balance exploration and exploitation throughout training, they implement **te
 
 ---
 
-DeepSeek-R1-Zero stands out as an exception compared to other models because it cold-starts RL (specifically, GRPO to save training costs; they use 10.4k steps, batch size of 512, reference policy replacement every 400 steps along with lr as 3e-6, KL coefficient as 0.001) on reasoning tasks without any supervised data. The reward system uses two types of rewards: **accuracy rewards** based on correctness of the response and **format rewards** that enforce the model to put its thinking process between thinking tags. It obtains robust reasoning capabilities using pure RL, which validates the ability to learn reasoning and generalize effectively. Moreover, behaviors including reflection (re-evaluating previous steps) and exploring alternative approaches to problem-solving merge, which further enhanced reasoning. The count of reflective words such as "wait" or "mistake" rises 5-7-fold compared to the start of training. Moreover, this reflective behavior appeared relatively suddenly: between steps 4k-7k, there was only occasional usage, but after step 8k, it exhibited significant spikes.
+DeepSeek-R1-Zero stands out as an exception compared to other models because it demonstrates that RL can be effective even without supervised fine-tuning. It cold-starts RL (specifically, GRPO to save training costs; they use 10.4k steps, batch size of 512, reference policy replacement every 400 steps along with lr as 3e-6, KL coefficient as 0.001) on reasoning tasks without any supervised data. The reward system uses two types of rewards: **accuracy rewards** based on correctness of the response and **format rewards** that enforce the model to put its thinking process between thinking tags. It obtains robust reasoning capabilities using pure RL, which validates the ability to learn reasoning and generalize effectively. Moreover, behaviors including reflection (re-evaluating previous steps) and exploring alternative approaches to problem-solving merge, which further enhanced reasoning. The count of reflective words such as "wait" or "mistake" rises 5-7-fold compared to the start of training. Moreover, this reflective behavior appeared relatively suddenly: between steps 4k-7k, there was only occasional usage, but after step 8k, it exhibited significant spikes.
 
-<img src="/public/training/deepseek_r1_pipeline.png" alt="The multi-stage pipeline of DeepSeek-R1" style="width: 80%; display: block; margin: 0 auto;">
+<img src="/public/training/deepseek_r1_pipeline.png" alt="The multi-stage pipeline of DeepSeek-R1" style="width: 75%; display: block; margin: 0 auto;">
 
-*Figure 9*: The multi-stage pipeline of DeepSeek-R1 with intermediate checkpoints DeepSeek-R1 Dev1, Dev2, and Dev3. From [DeepSeek](https://arxiv.org/pdf/2501.12948).
+*Figure 11*: The multi-stage pipeline of DeepSeek-R1 with intermediate checkpoints DeepSeek-R1 Dev1, Dev2, and Dev3. From [DeepSeek](https://arxiv.org/pdf/2501.12948).
 
 For DeepSeek-R1, they collect thousands of long CoT data to finetune the DeepSeek-V3-Base as the starting point for RL. From DeepSeek-R1-Zero, they learned that **readability** was an issue: responses sometimes mixed multiple languages or lacked markdown formatting for highlighting answers. They remedy the former by introducing a language consistency reward (portion of target language words in the CoT), and the latter by designing a readable pattern that includes a summary at the end of each response. They also perform a second RL stage aimed at improving the model's helpfulness and harmlessness while retaining reasoning capabilities. 
 
-For **helpfulness**, they focus on emphasizing the utility and relevance of the final summary. To generate preference pairs, they query DeepSeek-V3 four times and randomly assign responses as either Response A or Response B; they then average the independent judgments and retain pairs where the score difference is sufficiently large and use a pairwise loss to define the objective. For **harmlessness**, they evaluate the response to identify and mitigate any potential risk, biases, or harmful content.Using a dataset with model-generated resposnes annotated as "safe" or "unsafe" according to safety guidelines, the reward model is trained using a point-wise methodlogy to distinguish between safe/unsafe responses.
+For **helpfulness**, they focus on emphasizing the utility and relevance of the final summary. To generate preference pairs, they query DeepSeek-V3 four times and randomly assign responses as either Response A or Response B; they then average the independent judgments and retain pairs where the score difference is sufficiently large and use a pairwise loss to define the objective. For **harmlessness**, they evaluate the response to identify and mitigate any potential risk, biases, or harmful content. Using a dataset with model-generated responses annotated as "safe" or "unsafe" according to safety guidelines, the reward model is trained using a point-wise methodology to distinguish between safe/unsafe responses.
 
 Impressively, they found that distilling DeepSeek-R1's outputs into smaller models like Qwen-32B significantly improved reasoning capabilities, even compared to large-scale RL, which further requires significantly more compute. Moreover, it shows that even while distillation strategies are effective and economical, we will increasingly require more powerful base models and larger-scale RL.
 
-<img src="/public/training/deepseek_distillation.png" alt="Comparison of DeepSeek-R1-distilled and RL Models on Reasoning-Related Benchmarks" style="width: 80%; display: block; margin: 0 auto;">
+<img src="/public/training/deepseek_distillation.png" alt="Comparison of DeepSeek-R1-distilled and RL Models on Reasoning-Related Benchmarks" style="width: 75%; display: block; margin: 0 auto;">
 
-*Figure 10*: Comparison of DeepSeek-R1-distilled and RL Models on Reasoning-Related Benchmarks. From [DeepSeek](https://arxiv.org/pdf/2501.12948).
+*Figure 12*: Comparison of DeepSeek-R1-distilled and RL Models on Reasoning-Related Benchmarks. From [DeepSeek](https://arxiv.org/pdf/2501.12948).
 
 ---
 
-DeepSeek's appendix also notes other considerations.
+Beyond the main training pipeline, DeepSeek's appendix documents additional considerations that influenced their design choices:
 1) **GRPO over PPO**: PPO has a per-token KL penalty (the KL between sequence distributions decomposes into a sum over time of KL between tokens, given the autoregressve). Because RL does enable longer reasoning over time and PPO implicitly penalizes the length of the response (and less computationally expensive due to not needing an additional value model), GRPO is preferrable; on MATH tasks, GRPO consistently performed better than PPO with $\lambda=1.0$ which further does consistently better than PPO with $\lambda=0.95$.
-2) **product-driven DeepSeek-R1**: users find responses more intuitive when the reasoning process aligns with first-person thought patterns. So, after finetuning on a smal lamount of long CoT data, DeepSeek-R1 uses "I" more whereas DeepSeek-R1-Zero uses "we" more. Other considerations were previously mentioned, like language consistency while ensuring CoT remains coherent and aligned. The raw CoT produced by DeepSeek-R1-Zero may have possessed potential beyond limitations of current human priors, so human annotators convert the reasoning trace is one that is more human-interpretable/conversational.
+2) **product-driven DeepSeek-R1**: users find responses more intuitive when the reasoning process aligns with first-person thought patterns. So, after finetuning on a small amount of long CoT data, DeepSeek-R1 uses "I" more whereas DeepSeek-R1-Zero uses "we" more. Other considerations were previously mentioned, like language consistency while ensuring CoT remains coherent and aligned. The raw CoT produced by DeepSeek-R1-Zero may have possessed potential beyond limitations of current human priors, so human annotators convert the reasoning trace into one that is more human-interpretable/conversational.
 3) **temperature for reasoning**: they observed that greedy decoding to evaluate long-output reasoning models resulted in higher repetition rates and more variability. This concides with [recent research](https://arxiv.org/pdf/2512.12895), and it can be explained by **risk aversion due to hardness of learning** and **inductive bias for temporally correlated errors**, which describes that at decision points, the model tend to reselect previously favored actions (resulting in looping)
 
 ### RLVR and rubrics
@@ -523,7 +533,7 @@ The goal of RLVR on hybrid reasoning models is to improve reasoning capabilities
 
 This can be mitigated via an [overlong completion penalty](https://arxiv.org/abs/2503.14476) which penalizes completions over a certain length, which is a function parametrized by a soft punishment threshold and a hard punishment threshold/max completion length. Penalty increases from the soft to the hard threshold, and past the latter, the punishment is -1 (effective reward = 0).
 
-For `\no_think`, SmolLM3 decided on a length penalty in the range of 2.5k-3k that balanced improvement in performance and increase in response length. However, doing RL *jointly* on hybrid reasoning models is difficult since it requires separate length penalties, whose interplay can cause instability. This is also why labs release `instruct` and `reasoning` variants separately.
+For `/no_think`, SmolLM3 decided on a length penalty in the range of 2.5k-3k that balanced improvement in performance and increase in response length. However, doing RL *jointly* on hybrid reasoning models is difficult since it requires separate length penalties, whose interplay can cause instability. This is also why labs release `instruct` and `reasoning` variants separately.
 
 ---
 
@@ -537,11 +547,11 @@ To RL effectively, **curriculum learning** is another effective way which gradua
 
 ### alternatives to RL
 
-One alternative is **online DPO** (see "On policy with grading" in the preference optimization section). Another is **on-policy distillation**. Instead of preferences, the signal comes from a stronger teacher model, where the student samples responses at every training step and the KL divergence between the student/teacher logits provides the learning signal. That way, the student can continuously learn from the teacher. Also, on-policy distillation is much cheaper than GRPO since instead of sampling multiple rollouts per prompt, we only sample one, which is graded by the teacher in a single forward-backward pass; its performance boost, as the Qwen3 tech report notes, can be larger across the board as well. One limiting factor is that the student and the teacher must share the same tokenizer, and HuggingFace's [General On-Policy Logit Distillation](https://huggingface.co/spaces/HuggingFaceH4/on-policy-distillation) (GOLD) allows any teacher to be distilled into any student. 
+One alternative is **online DPO** (see "On policy with grading" in the preference optimization section). Another is **on-policy distillation**. Instead of preferences, the signal comes from a stronger teacher model, where the student samples responses at every training step and the KL divergence between the student/teacher logits provides the learning signal. That way, the student can continuously learn from the teacher. Also, on-policy distillation is much cheaper than GRPO since instead of sampling multiple rollouts per prompt, we only sample one, which is graded by the teacher in a single forward-backward pass; its performance boost, as the Qwen3 tech report notes, can be larger across the board as well. One limiting factor is that the student and the teacher must share the same tokenizer, and Hugging Face's [General On-Policy Logit Distillation](https://huggingface.co/spaces/Hugging FaceH4/on-policy-distillation) (GOLD) allows any teacher to be distilled into any student. 
 
 [Thinking Machine's blog](https://thinkingmachines.ai/blog/on-policy-distillation/) further showed that on-policy distillation mitigates **catastrophic forgetting**, where a model post-trained on a new model regresses on other, previous domains. Specifically, they found that mid-training 70% and with on-policy distillation can achieve close to the best performance of a model and its mid-trained version, effectively restoring behavior with cheap distillation.
 
-Given these aforementioned algorithms, choosing between them can be hard; HuggingFace aptly describes it:
+Given these aforementioned algorithms, choosing between them can be hard; Hugging Face aptly describes it:
 
 | Algorithm | When to Use | Tradeoffs | Best for Model Size |
 |-----------|-------------|-----------|---------------------|
@@ -592,7 +602,7 @@ Before the main training run starts, ensure the infrastructure is ready. This in
 
 ## vanishing throughput 
 
-HuggingFace observed a ~40% drop in throughput (14k to 8k tokens/sec/GPU) after a few hours of starting the main run. The issue came from data storage; their cluster uses a network-attached storage with a "keep-hot" caching model that stores frequently accessed files and evicts "cold" files to third-party S3. With 24TB of training data, the storage was pushed to its limit, so it evicted dataset shards mid-training. This meant fetching them back and creating stalls that slowed throughput. 
+Hugging Face observed a ~40% drop in throughput (14k to 8k tokens/sec/GPU) after a few hours of starting the main run. The issue came from data storage; their cluster uses a network-attached storage with a "keep-hot" caching model that stores frequently accessed files and evicts "cold" files to third-party S3. With 24TB of training data, the storage was pushed to its limit, so it evicted dataset shards mid-training. This meant fetching them back and creating stalls that slowed throughput. 
 
 The first fix came in the form of swapping the storage method by reserving a spare node with the dataset preloaded and copying using `fpsync` (`s5cmd` took double the time). This fixed the issue of a node dying and the replacement GPU having no data since by swapping it with the spare node, training could continue. So, the new spare, not to be wasted, could run evals or dev jobs.
 
