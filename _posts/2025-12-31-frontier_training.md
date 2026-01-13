@@ -301,7 +301,7 @@ Kimi K2 uses **data rephrasing** in knowledge and math domains. For knowledge, t
 
 ### pre-training data
 
-##### SmolLM3
+#### SmolLM3
 Hugging Face's goal was to build a multi-lingual model that also excels on math and coding. In stage 1 of their multi-stage training, they use a 75/12/10/3 split among english web data, multilingual web data, code data, and math data.
     
 - **English web data**: they ablate on a mixture of FineWeb-Edu (educational and STEM benchmarks) and DCLM (common sense reasoning), two strong open English web datasets at the time of training, finding that a 60/40 or a 50/50 split was best. Later, they add in other datasets including [Pes2o](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/pes2o), [Wikipedia & Wikibooks](https://huggingface.co/datasets/allenai/dolmino-mix-1124/tree/main/data/wiki), and [StackExchange](https://huggingface.co/datasets/HuggingFaceTB/stackexchange_2025_md). 
@@ -311,7 +311,7 @@ Hugging Face's goal was to build a multi-lingual model that also excels on math 
 
 For new stages (using a checkpoint at around 7T out of the total 11T tokens), they use a 40/60 split between the baseline mixture and the new dataset. SmolLM3 has three stages: 8T tokens @ 4k context for base training, 2T tokens @ 4k context for high-quality injection, and 1.1T tokens @4k context a reasoning/Q&A stage.
 
-##### hermes 4
+#### hermes 4
 
 Using data from [DCLM](https://arxiv.org/abs/2406.11794) and FineWeb Nous first does semantic deduplication using embeddings at a cosine similarity of 0.7, and then use an LLM-as-judge to filter out incomplete or ill-formatted messages. Then, they process pre-training data through **DataForge**, a graph-based synthetic data generator, which allows for large and complex structures. By taking a random walk through a directed acyclic graph where nodes implement a mapping from struct $\to$ struct such that if there is an edge from node $A$ to node $B$, the postconditions guaranteed by $A$ must satisfy the preconditions of $B$. QA pairs are generated using this workflow with intermediary transformations into other mediums (e.g. a wikipedia article into a rap song), question generation and then questions/answers annotations using an LLM-as-judge to grade the instruction and response. Also, to find a covering set of data-scarce domains of special interest, they recursively (*depth-first-search*) generate a taxonomy of subdomains where the leaves are prompts and the LLM enumerates $n$ subdomains to form a partition.
 
@@ -353,7 +353,7 @@ To prevent overfitting, evals that encapsulate robustness or adaptability, like 
 
 ### post-training data
 
-##### intellect 3
+#### intellect 3
 
 It's first worth mentioning that Intellect-3 is a 106B parameter MoE (12B activate) post-trained on top of GLM-4.5-Air base model from Z.ai, and that they have their own post-training stack including `prime-rl`, an open framework for large-scale asynchronous RL, `verifiers` library for training and evals from their Environments Hub, sandbox code execution and compute orchestration.
 
@@ -363,7 +363,7 @@ For code, they primarily use their [Synthetic-2 dataset](https://huggingface.co/
 
 Prime also focuses on its deep research capabilities via their web search environment, which provides the model with a set of search tools. The environment tasks the model with answering questions from the dataset using tools and is rewarded either 1 or 0 using [z-AI's DeepDive dataset](https://huggingface.co/datasets/zai-org/DeepDive), with 1K samples for SFT trajectory generation and 2.2K samples for RL. When tested in `Qwen/Qwen3-4B-Instruct-2507`, 26 steps of SFT with batch size of 34 followed by 120 steps of RL at a group size of 16 and batch size of 512 was enough to reach mean reward of 0.7.
 
-##### hermes 4
+#### hermes 4
 
 They use 300k prompts, mostly STEM and coding from [WebInstruct-Verified](https://huggingface.co/datasets/TIGER-Lab/WebInstruct-verified), [rSTAR-Coder](https://arxiv.org/abs/2505.21297), and [DeepMath-103k](https://arxiv.org/abs/2504.11456) and apply deduplicating and filtering for prompts with >2k characters.
 
@@ -373,7 +373,7 @@ Nous rejection samples against ~1k task-specific verifiers using [Atropos](https
 - **Schema Adherence**: facilitates generation (producing a valid JSON object from natural language prompt and a schema) and editing (identifying and correcting validation errors within a malformed JSON object)
 - **Tool Use**: facilitates agentic behavior by training the model to generate reasoning and produce tool calls via the `<tool_call>` token.
 
-##### kimi k2
+#### kimi k2
 
 A critical capability that Kimi K2 chooses to focus on is tool use. While benchmarks like $\tau$-bench and ACEBench exist, it's often difficult to construct real-world environments at scale due to cost, complexity, privacy, and accessibility. Kimi K2 builds off of ACEBench's data synthesis framework to simulate real-world tool-use scenarios at scale:
 1. **Tool spec generation**: constructing a large repo of tool specs from real-world tools and LLM-synthetic tools
@@ -458,7 +458,7 @@ There are typically three hyperparameters that affect training dynamics:
 2. **$\beta$**: ranging from 0 to 1, it controls whether to stay closer to the reference model (loss $\beta$) or closer to the preference data (higher $\beta$). If too large, it could erase capabilities from the SFT checkpoint, so $\beta$ values around 0.1 or higher are usually preferable
 3. **preference dataset size**: when tested with sizes from 2k to 340k pairs, performance largely remained stable, although Hugging Face noted performance drops in extended thinking for datasets beyond 100k pairs. To that point, don't be afraid to create your own preference data, especially with how cheap inference has become.
 
-##### algorithms
+#### algorithms
 
 Besides vanilla **DPO** ([direct preference optimization](https://arxiv.org/abs/2305.18290)), researchers have explored a variety of alternatives:
 1. **KTO** ([Kahneman-Tversky Optimization](https://arxiv.org/abs/2402.01306)): instead of pairs, KTO assigns updates based on whether a sample is labeled desirable/undesirable, taking ideas from human decision making along with a reference point $z_0$ and a reward-like log-ratio term.
@@ -527,7 +527,7 @@ Beyond the main training pipeline, DeepSeek's appendix documents additional cons
 2) **product-driven DeepSeek-R1**: users find responses more intuitive when the reasoning process aligns with first-person thought patterns. So, after finetuning on a small amount of long CoT data, DeepSeek-R1 uses "I" more whereas DeepSeek-R1-Zero uses "we" more. Other considerations were previously mentioned, like language consistency while ensuring CoT remains coherent and aligned. The raw CoT produced by DeepSeek-R1-Zero may have possessed potential beyond limitations of current human priors, so human annotators convert the reasoning trace into one that is more human-interpretable/conversational.
 3) **temperature for reasoning**: they observed that greedy decoding to evaluate long-output reasoning models resulted in higher repetition rates and more variability. This concides with [recent research](https://arxiv.org/pdf/2512.12895), and it can be explained by **risk aversion due to hardness of learning** and **inductive bias for temporally correlated errors**, which describes that at decision points, the model tend to reselect previously favored actions (resulting in looping)
 
-##### RLVR and rubrics
+#### RLVR and rubrics
 
 The goal of RLVR on hybrid reasoning models is to improve reasoning capabilities without extending the token count too radically. For `/no_think`, naively applying GRPO can lead to **reward hacking** since the model begins to emit longer CoT (shifting towards `/think`); as such, both reward and token length increase. SmolLM3 observed this and found that RLVRed `/no_think` traces showed [cognitive behaviors](https://arxiv.org/abs/2503.01307) like "Wait, ..." associated with reasoning models. 
 
@@ -541,11 +541,11 @@ Kimi K2 uses a **self-critique rubric reward** mechanism, where the model evalua
 
 The critic model is refined using verifiable signals, and this process of transfer learning grounds its more subjective judgments in verifiable data. This should allow the critic to recalibrate its evaluation standard in lockstep with the policy's evolution.
 
-##### online data filtering
+#### online data filtering
 
 To RL effectively, **curriculum learning** is another effective way which gradually exposes the model to progressively difficult problems. First, problems are sorted into difficulty pools (such as easy, medium, and hard) based on the problem's observed solve rate; In Intellect-3 for math and coding, this was done via querying `Qwen/Qwen3-4B-Thinking-2507` over eight generations per problem while for science and logic, they queried the same model 16 times. Then, during each stage, they maintain a balanced curriculum that avoids training with trivially easy or overly difficult problems which don't give meaningful learning signal (and also helps maintain gradients in GRPO). In Kimi K2, this was done by using the SFT model's pass@k accuracy.
 
-##### alternatives to RL
+#### alternatives to RL
 
 One alternative is **online DPO** (see "On policy with grading" in the preference optimization section). Another is **on-policy distillation**. Instead of preferences, the signal comes from a stronger teacher model, where the student samples responses at every training step and the KL divergence between the student/teacher logits provides the learning signal. That way, the student can continuously learn from the teacher. Also, on-policy distillation is much cheaper than GRPO since instead of sampling multiple rollouts per prompt, we only sample one, which is graded by the teacher in a single forward-backward pass; its performance boost, as the Qwen3 tech report notes, can be larger across the board as well. One limiting factor is that the student and the teacher must share the same tokenizer, and Hugging Face's [General On-Policy Logit Distillation](https://huggingface.co/spaces/Hugging FaceH4/on-policy-distillation) (GOLD) allows any teacher to be distilled into any student. 
 
@@ -561,7 +561,7 @@ Given these aforementioned algorithms, choosing between them can be hard; Huggin
 
 And for DPO (semi-online and online), it is also possible to match GRPO using far less compute. Specifically, they found that semi-online DPO (with syncing between the trainer and the generator every 100 steps) was generally the best compared to semi-online DPO with sync every 10 steps, online DPO, and GRPO.
 
-##### limitations
+#### limitations
 
 DeepSeek shares other experimental methods when developing DeepSeek-R1 that ultimately failed. **Monte Carlo Tree Search** (MCTS), inspired by [AlphaGo](https://arxiv.org/abs/1712.01815) and [AlphaZero](https://arxiv.org/abs/1712.01815), was implemented to test enhancing test-time compute scalability. This breaks answers into smaller parts to allow the model to explore the solution space systematically. To do this, they prompted the model to generate tags corresponding to reasoning steps necessary. The problem is that **token generation exists in an exponentially larger search space** compared to chess. So, they set a max extension limit for each node, but this leads to the model getting stuck in local optima. Moreover, training a fine-grained value model is difficult, also due to complexities of token generation.
 
