@@ -5,7 +5,7 @@ tokens: "~23.0k"
 reading_time: 72
 ---
 
-How do labs train a frontier, multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925), Moonshot's [Kimi K2](https://arxiv.org/pdf/2507.20534), and DeepSeek's [DeepSeek-R1](https://arxiv.org/pdf/2501.12948). This blog is an attempt at distilling the techniques, motivations, and considerations used to train their models with an emphasis on training methodology over infrastructure.
+How do labs train a frontier, multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925), Moonshot's [Kimi K2](https://arxiv.org/pdf/2507.20534), DeepSeek's [DeepSeek-R1](https://arxiv.org/pdf/2501.12948), and Arcee's [Trinity series](https://github.com/arcee-ai/trinity-large-tech-report/blob/main/Arcee%20Trinity%20Large.pdf). This blog is an attempt at distilling the techniques, motivations, and considerations used to train their models with an emphasis on training methodology over infrastructure.
 
 These notes are largely structured based on Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, Hermes 4, DeepSeek, and Kimi. Also, these notes have not been thoroughly reviewed. Any errors are entirely my responsibility.
 
@@ -26,13 +26,13 @@ While this blog explores some infrastructure-related ideas like in-flight weight
 
 Architecture decisions fundamentally determine a model's efficiency, capabilities, and training dynamics. Model families like DeepSeek, gpt-oss-120b, Kimi, and SmolLM have vastly different architectures (dense vs MoE), attention mechanisms (MHA vs MLA vs GQA), position encodings (RoPE, partial RoPE, NoPE), among many others. Not all information about the models is publicly available, so some are chosen:
 
-| | Kimi-K2 | gpt-oss-120b | OLMo 3 | SmolLM |
-|--|---------|---------|------|--------|
-| Parameter Count | 1.06T | 116.83B | 32B | 3B|
-| Attention | MLA | GQA (8 groups) | GQA (?) | GQA (4 groups)|
-| Positional Embedding| RoPE (?) + YARN | RoPE + YARN| RoPE + YARN | RNoPE + YARN|
-| Architecture | MoE | MoE | dense | dense|
-| Tokenizer | [tokenization_kimi](https://huggingface.co/moonshotai/Kimi-K2-Instruct/blob/main/tokenization_kimi.py#:~:text=kimi_k2,c2fee60%20verified) | [o200k_harmony](https://github.com/openai/tiktoken) | [cl_100k](https://github.com/openai/tiktoken) | Llama3|
+| | Kimi-K2 | Trinity Large | gpt-oss-120b | OLMo 3 | SmolLM |
+|--|---------|---------------|---------|------|--------|
+| Parameter Count | 1.06T | 400B | 116.83B | 32B | 3B |
+| Attention | MLA | GQA (8 groups) | GQA (8 groups) | GQA (?) | GQA (4 groups) |
+| Positional Embedding| RoPE (?) + YARN | RoPE + YARN | RoPE + YARN| RoPE + YARN | RNoPE + YARN|
+| Architecture | MoE | MoE | MoE | dense | dense |
+| Tokenizer | [tokenization_kimi](https://huggingface.co/moonshotai/Kimi-K2-Instruct/blob/main/tokenization_kimi.py#:~:text=kimi_k2,c2fee60%20verified) | custom | [o200k_harmony](https://github.com/openai/tiktoken) | [cl_100k](https://github.com/openai/tiktoken) | Llama3|
 
 When choosing architecture, Hugging Face suggests following a decision tree such that if one of these is true, choose a dense architecture:
 - memory-constrained (since MoEs must have all experts loaded)
@@ -45,6 +45,12 @@ Multi-head attention (MHA) uses separate query, key, and value projections for e
 
 When ablating (for variables that change the parameter count such as changing MHA to GQA, they occasionally adjust other hyperparameters to keep model sizes roughly the same), Hugging Face found that **GQA with small groups beats MHA** and that **MHA beats MQA and GQA with 16 groups**. Across benchmarks like HellaSwag, MMLU, and ARC, GQA with 2/4/8 groups does best.
 
+### gated attention
+
+**Gated attention** applies an elementwise gating mechanism to the scaled dot-product attention output before the output projection. A gate vector $\mathbf{g}_t = \sigma(\mathbf{W}^G \mathbf{x}_t)$ is computed from the input, where $\sigma$ is the sigmoid function and $\mathbf{W}^G$ is a learned gate projection matrix. This gate is split across $h_q$ attention heads, and each head's attention output is elementwise multiplied by its corresponding gate segment: $\tilde{\mathbf{o}}_{t,i} = \mathbf{o}^{\text{sdpa}}_{t,i} \odot \mathbf{g}_{t,i}$ where $\mathbf{o}^{\text{sdpa}}_{t,i}$ represents the scaled dot-product attention. The gated outputs are then concatenated and projected through the output matrix $\mathbf{W}^O$ to produce the final output.
+
+Gated attention reduces attention sinks (tokens receiving disproportionately high attention), reduces large activations that destabilize training, and improves performance on evaluations and long-sequence generalization. Critically, it stabilizes training and reduces loss spikes, making it valuable for large-scale training.
+
 ### document masking
 
 When pre-training, a common consideration is **fixed sequence lengths** since training uses tensors of the form [batch, sequence length, hidden], so with regards to batching and distributed training, GPUs are most happy when every example has the same sequence length. But due to variable document length and wanting to avoid padding which wastes compute, **packing** enables shuffling and concatenating documents within the same sequence to achieve the sequence length. 
@@ -56,6 +62,8 @@ Causal masking means that for unrelated files $A$ and $B$ in the same batch, the
 *Figure 1*: Comparison of causal masking (left) and intra-document masking (right). Causal masking allows tokens to attend to all preceding tokens regardless of document boundaries, while intra-document masking restricts attention to tokens within the same document. From [@PMinervini](https://x.com/PMinervini/status/1777596492351422866).
 
 When implementing document masking, Hugging Face saw small improvements on PIQA but otherwise no noticeable impact on short context tasks. But in line with aforementioned research, they observed that it became crucial for scaling from 4k to 64k tokens.
+
+The decision of whether to use intra-document attention masking can depend on model scale. For smaller models, some implementations choose to omit intra-document masking, finding that the additional complexity and potential reduction in cross-document learning doesn't justify the benefits at those scales. However, for larger models, intra-document masking becomes more critical as the model's capacity to learn from cross-document attention patterns diminishes relative to the benefits of cleaner document boundaries.
 
 ### embedding sharing
 
@@ -94,6 +102,8 @@ An alternative to adjusting positional encodings for long contexts is specifying
 - **Sliding Window Attention (SWA)**: every token can see up to $p$ positions back, creating a sliding window that maintains local context. [Gemma 3](https://arxiv.org/abs/2503.19786) combined SWA with full attention every other layer.
 - **Dual Chunk Attention (DCA)**: $K$ tokens are chunked into $M$ groups. Within each group (like chunked attention), tokens attend normally. Between successive chunks, there is a local window to preserve locality, and more broadly, inter-chunk attention allows queries to attend to previous chunks with a capped relative position cap. [Qwen-2.5](https://arxiv.org/pdf/2412.15115) used DCA to support context windows of up to 1 million tokens.
 
+**Interleaving local and global attention** alternates between layers that use local attention (restricted to nearby tokens) and global attention (full sequence). This pattern balances computational efficiency with the ability to capture both local and long-range dependencies. Local layers reduce quadratic complexity while maintaining local context, and global layers ensure that distant relationships aren't lost. When training encounters instability or loss spikes, adjusting the ratio of global layers (for example, increasing their frequency) can result in quicker loss recovery, as the model regains access to long-range information that may be crucial for certain patterns. The interleaving strategy is particularly effective for long-context models where full global attention would be computationally prohibitive.
+
 ### MoE
 
 MoEs (mixture of experts), analogous to our brain activating different regions for different tasks, provide an alternative to dense models. At inference, only certain "experts" are activated based on the input, dramatically reducing compute compared to dense models where all parameters are active. The MoE works by replacing the feed forward layer with multiple MLPs (experts) and adding a learnable router before the MLPs to select the experts. The router typically uses top-k gating, selecting the $k$ experts with highest affinity scores for each token, where $k$ is usually much smaller than the total number of experts (e.g., 8 out of 384).
@@ -110,6 +120,46 @@ To determine how large each expert should be, a common metric is granularity, de
 **Load balancing** is crucial in that if it fails, not only do training and inference efficiency plummet, but so do effective learning capacity. The routing mechanism typically uses **top-k gating**: for each token, the router computes affinity scores (often via a learned linear projection followed by softmax), selects the top $k$ experts, and routes the token to those experts. To ensure balanced expert utilization, this can be addressed by adding a **loss-based load balancer** (LBL) given by $\mathcal{L} = \alpha \sum_{i=1}^{N_r} f_i P_i$ where $\alpha$ determines the strength, $f_i$ is the fraction of tokens going through expert $i$, and $P_i$ is the probability mass that sums the probability of tokens going through an expert; so in perfect load balancing, $f_i=P_i=\frac1{N_r}$. Also, $\alpha$ should not be so large that routing uniformity overwhelms the primary training objective. These should be monitored using *global statistics*, not local statistics which may suffer from a local batch being narrow, biasing the routing statistics. 
 
 [DeepSeek-V3](https://arxiv.org/abs/2412.19437) does loss-free load balancing differently, by adding a bias term to affinity scores going into the routing softmax.
+
+Beyond bias-based approaches, several other routing and load balancing strategies have emerged. Some implementations use learnable routing functions that adapt during training, while others incorporate expert capacity constraints that prevent any single expert from being overwhelmed. The key insight across these methods is that effective load balancing must operate using global statistics aggregated across multiple batches, as local batch statistics can be misleadingly narrow and bias routing decisions.
+
+**Sequence-wise auxiliary loss** extends traditional auxiliary losses to promote balance within a sequence.
+
+$$
+\begin{align*}
+\tilde{s}_{i,t} &= \frac{s_{i,t}}{\sum_{j=1}^{N_r} s_{j,t}} \\
+P_i &= \frac1{T} \sum_{t=1}^T \tilde{s}_{i,t} \\
+f_i &= \frac{N_r}{K_r T} \sum_{t=1}^T \mathbb{1}\left(s_{i,t} + b_i \in \text{TopK}\left(\{s_{j,t}+b_j\}_{j=1}^{N_r}, K_r\right)\right) \\
+\mathcal{L}_{\text{Bal}} &= \alpha \sum_{i=1}^{N_r} f_i P_i
+\end{align*}
+$$
+
+Here, $T$ is the sequence length, $\alpha$ is a small coefficient, $\mathbb{1}(\cdot)$ is the indicator function (which is 1 if its argument is true and 0 otherwise), and $K_r$ is the number of active experts per token.
+
+Here, for each token at each position $t$ in the sequence, each expert $i$ is assigned a routing score $s_{i,t}$, which is normalized so that $\tilde{s}_{i,t}$ captures the proportion of the routing probability assigned to expert $i$ at position $t$. Averaging this over the whole sequence gives $P_i$, which represents, on average, how often expert $i$ is considered for routing across the sequence. The $f_i$ term furthers this by reflecting the fraction of times expert $i$ is actually selected (i.e., is among the top $K_r$ experts for a token, after bias terms $b_i$ are added). The loss $\mathcal{L}_{\text{Bal}}$ encourages the product $f_i P_i$ to be similar across different experts, pushing the model toward evenly distributing routing decisions and load; if any expert is used much more or less than others, the loss will increase, nudging the model back toward balanced expert activation. 
+
+**Auxiliary-loss free load balancing** methods avoid introducing interference gradients by maintaining a bias vector $\mathbf{b}=[b_1, \cdots, b_{N_r}]$ which is updated in a decoupled fashion. Let $n_i$ be the number of tokens routed to expeert $i$ in the current step and $\bar{n}=\frac1{N_r} \sum_{i=1}^{N_r} n_i$ the mean load. $b_i$ is updated by 
+
+$$
+\begin{align*}
+b_i &\leftarrow b_i + \gamma \cdot \text{sign}(\bar{n}-n_i) \\
+b_i &\leftarrow b_i - \frac1{N_r} \sum_{j=1}^{N_r} b_j
+\end{align*}
+$$
+
+where $\gamma$ is the bias update speed, a sort of learning rate. This particular version includes the additional recentering of expert bias updates.
+
+**Sequence-wise MoE Balancing with Uniformity (SMEBU)** load balancing operates at the sequence level rather than the token level, ensuring that expert utilization remains balanced across entire sequences. The normalized per-expert violation is calculated by $v_i=\frac{\bar{n}-n_i}{\bar{n}}$ and $\tilde{v}_i=\tanh(\kappa v_i)$, which makes the scale independent of sequence length and batch size. Then $b_i$ is updated using a momentum buffer with momentum factor $\beta$:
+
+$$
+\begin{align*}
+\Delta &= \lambda \tilde{v}_i - \frac1{N_r} \sum_{j=1}^{N_r} \Delta b_j \\
+m_i &\leftarrow \beta m_i + (1-\beta) \Delta b_i \\
+b_i &\leftarrow b_i + m_i 
+\end{align*}
+$$
+
+$\tanh$ applies the soft-clamping, with tunable scale $\kappa$ to control saturation speed; $\tanh$ over $\text{sign}(\cdot)$ maintains the continuity and stability needed during training whereas $\text{sign}$ foraces updates to be $\pm \lambda$, making the update step oscillate. Momentum also is intorudced as a form of noise dampening, analagous to momentum SGD reducing variance in noisy gradient updates
 
 ### hybrid models
 
@@ -149,9 +199,22 @@ Hugging Face tested this using a weight decay baseline, a no weight decay baseli
 
 Similar to $z$-loss, QK-norm helps prevent attention logits from becoming too large by applying LayerNorm to both the query and key vectors before computing attention. However, [the same paper which proposed RNoPE](https://arxiv.org/abs/2501.18795) found that it hurts long-context tasks because the normalization demphasizes relevant tokens and emphasizes irrelevant tokens by stripping the query-key dot product of its magnitude.
 
+### RMSNorm
+
+RMSNorm maintains comparable performance to LayerNorm while being computationally simpler, due to avoiding the mean-centering computation. A variant called **depth-scaled sandwich norm** applies normalization both before and after the attention/MLP blocks, with the normalization scale adjusted based on the layer depth:
+
+$$\mathbf{y}_\ell = \mathbf{x}_\ell + \text{RMSNorm}_\ell^{(2)}(\mathcal{M}_\ell(\text{RMSNorm}_\ell^{(1)}(\mathbf{x}_\ell)))$$
+
+where $\mathbf{x}_\ell$ and $\mathbf{y}_\ell$ are input/output of layer $\ell$, $\mathcal{M}_\ell$ is the sublayer module (like attention, FFN, or MoE). The RMSNorm gain, $\gamma$, is a multiplicative factor applied after the RMS normalization, given by $\bar{a}_i = \gamma\frac{a_i}{\text{RMSNorm(a)}}$. In Arcee's case, they initialize $\gamma\left(\text{RMSNorm}_\ell^{(1)}\right)=1$ and $\gamma\left(\text{RMSNorm}_\ell^{(2)}\right)=\frac1{\sqrt{L}}$. This depth-dependent scaling accounts for the fact that activations evolve differently across layers. The sandwich pattern (pre-norm and post-norm) provides additional stability, especially in very deep networks where gradient flow can be challenging.
+
+Arcee also applyies RMSNorm before the language modeling head stabilizes the final hidden states to ensure consistent output activation scales before they are transformed into token probabilities. 
+
 ### other design considerations
 
-1. **Parameter initialization**: either normalization initialization ($\mu=0$, $\sigma=0.02, 0.006$) with clipping (often with $\pm 2-3 \sigma$) or a scheme like $\mu\text{P}$ ([maximal update parametrization](https://arxiv.org/abs/2011.14522)) which dictates how weights and learning rates should scale with width so that training dynamics stay comparable.
+1. **Parameter initialization**: either normalization initialization with $\mu=0$ and clipping as TruncDNormal initialization does (often with $\pm 2-3 \sigma$) or a scheme like $\mu\text{P}$ ([maximal update parametrization](https://arxiv.org/abs/2011.14522)) which dictates how weights and learning rates should scale with width so that training dynamics stay comparable. 
+    - The clipping prevents extreme initialization values that could destabilize training, which is particularly important for embedding layers where large initial activations can propagate through the network. 
+    - Another heuristic is setting $\sigma=\frac{0.5}{\sqrt{d}}$ where $d$ is model dimension, although the exact coefficient can vary. 
+    - During the forward pass, the embedding layer's activations are scaled by $\sqrt{d}$: $\mathbf{e}_T=\sqrt{d} E(\text{tok}_t)$. TODO: WHY? . Notably, Grok-1 and Grok-2 checkpoints as well as Trinity Large and the first two generations of the Gemma models implement this.
 2. **Activation Function**: SwiGLU is what most modern LLMs use, not ReLU or GeLU; for example, gpt-oss-120b uses gated SwiGLU. Some exceptions are Gemma2 using GeGLU and nvidia using $\text{relu}^2$. 
 3. **Width vs Height**: deeper models tend to outperform equally sized wider ones on language modeling and compositional tasks. In smaller models, this is more pronounced, but larger models make use of wider models for faster inference due to modern architectures supporting better parallelism. 
 
@@ -201,7 +264,9 @@ O_t &\leftarrow \text{NewtonSchulz5}(B_t) \\
 \end{align*}
 $$
 
-where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) and [this blog](https://kellerjordan.github.io/posts/muon/) describe the algebra of it in more detail as well as why the coefficients are what they are. The Newton-Schulz iteration approximates the matrix sign function: we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because iteratively applying $f$ (i.e., $f \circ f \circ \cdots f(x)$) converges to the sign function, which normalizes the singular values. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. Also, muon can tolerate higher batch sizes.
+where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) and [this blog](https://kellerjordan.github.io/posts/muon/) describe the algebra of it in more detail as well as why the coefficients are what they are. The Newton-Schulz iteration approximates the matrix sign function: we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because iteratively applying $f$ (i.e., $f \circ f \circ \cdots f(x)$) converges to the sign function, which normalizes the singular values. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. 
+
+Muon is more sample-efficient than AdamW, especially at large batch sizes where AdamW struggles. Some implementations, including Arcee's Trinity Large, choose a hybrid approach: using muon for hidden layers while keeping AdamW for embedding and output layers. This decision stems from the different optimization dynamics these layers exhibit—embeddings and output projections benefit from per-parameter adaptive learning rates, while hidden layers capture more benefit from muon's matrix-level structure awareness.
 
 But since muon operates at the matrix level, applying NewtonSchulz requires access to the full gradient tensor. One method uses an *overlapping round-robin scheme* where each rank is responsible for gathering all gradient matrices corresponding to its index and applying muon locally. Since FSDP expects sharded gradients/updates, and every rank has its shard of the muon-updated gradient, then the optimizer step can proceed normally. However, this issues lots of overlapping collectives across many matrices which breaks at scale.
 
@@ -254,7 +319,13 @@ There is a [critical batch size](https://arxiv.org/abs/1812.06162): too small an
 
 A useful proxy is that for optimizers like AdamW or Muon, if the batch size increases by a factor of $k$ then the learning rate should scale up by $\sqrt{k}$. Intuitively, larger batches provide more stable gradient estimates (lower variance), so we can afford larger step sizes. Mathematically, the covariance shrinks by a factor of $k$, and based on the SGD parameter update $\Delta w = -\eta g_B$, we have $\text{Var}(\Delta w) \sim \eta^2 \frac{\Sigma}{B}$ where $B$ is the original batch size. To maintain the same update variance, we need $\eta \sim \sqrt{k}$. 
 
-As training progresses, the critical batch size grows. Initially, since the model is making large updates, $\lvert \lvert g \rvert \rvert^2$ is large so the model should have a small critical batch size. After the model stabilizes, larger batches become more effective. This motivates the idea of *batch size warmup*. 
+As training progresses, the critical batch size grows. Initially, since the model is making large updates, $\lvert \lvert g \rvert \rvert^2$ is large so the model should have a small critical batch size. After the model stabilizes, larger batches become more effective. This motivates the idea of *batch size warmup*.
+
+**Imbalanced minibatches** can arise when sequence packing or data distribution creates batches with highly variable sequence lengths or domain compositions, whichcan cause gradient variance that destabilizes training; this is especailly true when certain experts or model components receive disproportionately many or few tokens. 
+
+Arcee introduces **random sequential document buffer (RSDB)** to reduce intra-batch correlation. After tokenizing a document, it works by loading the token sequence as an entry in the RSDB with a read head at index 0; this is repeated until the RSDB is full. From a randomly sampled index in a randomly sampled document from the RSDB, tokens are read based on the read head and the index and added to a separate sequence buffer. Read head positions are updated, and if the sequence buffer is full, we return; otherwise, we randomly select another document index and continue to read tokens into the sequence buffer, repeating until the sequence buffer is full.
+
+The internal buffer size (in Trinity Large: 8192 per GPU) is set to twice the user-specified buffer value and refilled when the buffer reaches the user-specified value (in Trinity Large: 4096 per GPU) or when old documents need to be purged/new documents can be loaded. Arcee found that this optimization significantly improved dataloader performance.
 
 ### scaling laws
 
@@ -411,6 +482,8 @@ Most post-training pipelines start with **supervised fine-tuning (SFT)** because
 Dataset curation for SFT is important; datasets might seem great on paper, but models trained on those datasets may end up overindexing on certain domains, such as science. To this end, Hugging Face curated a data mixture with ~100k examples and 76.1M tokens, mostly consisting of instruction following, reasoning, and steerability for both think and non-think modes. Importantly, *data should be paired across modes* because otherwise, there is not an indication of when to give a concise answer or use extended reasoning.
 
 For training, there are other considerations as well: full finetuning vs more parameter efficient methods like LoRA or QLoRA, specialized kernels like FlashAttention (which reduces memory usage by recomputing attention on-the-fly during the backward pass, trading compute for memory) or the likes of SonicMoE for more efficient compute usage, masking the loss for only assistant tokens, the type of parallelism needed, learning rate tuning, and sequence length tuning to match the distribution of data to speed up training (more useful for larger datasets).
+
+**Cute cross-entropy kernel** (CCE) is a memory-efficient CUDA kernel for computing cross-entropy loss. Instead of materializing the full logit matrix in global memory, CCE computes only the logit for the correct token and evaluates the log-sum-exp over all vocabulary items on-the-fly using faster memory tiers, dramatically reducing memory consumption. The kernel leverages the sparsity of softmax by skipping gradient computation for elements with negligible contributions below numerical precision. This makes it particularly valuable for models with large vocabularies.
 
 ---
 

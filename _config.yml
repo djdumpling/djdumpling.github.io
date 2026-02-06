@@ -23,6 +23,12 @@ google_analytics: G-97R68RHKQG
 #########################################################################################
 theme: "minima"
 
+# Top bar: only these pages (ongoing is hidden but still reachable via direct link)
+minima:
+  nav_pages:
+    - index.md
+    - archive.md
+
 # Allow future-dated posts to be processed (for "Ongoing" section)
 future: true
 
