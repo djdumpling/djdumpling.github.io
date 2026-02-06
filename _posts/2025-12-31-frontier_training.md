@@ -1,7 +1,7 @@
 ---
 title: "frontier model training methodologies"
 date: 2026-01-18
-tokens: "~23.0k"
+tokens: "~26.8k"
 reading_time: 72
 ---
 
