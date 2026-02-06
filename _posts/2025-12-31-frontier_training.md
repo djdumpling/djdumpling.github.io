@@ -1,6 +1,6 @@
 ---
 title: "frontier model training methodologies"
-date: 2026-01-18
+date: 2026-01-31
 tokens: "~26.8k"
 reading_time: 72
 ---
@@ -47,7 +47,7 @@ When ablating (for variables that change the parameter count such as changing MH
 
 ### gated attention
 
-**Gated attention** applies an elementwise gating mechanism to the scaled dot-product attention output before the output projection. A gate vector $\mathbf{g}_t = \sigma(\mathbf{W}^G \mathbf{x}_t)$ is computed from the input, where $\sigma$ is the sigmoid function and $\mathbf{W}^G$ is a learned gate projection matrix. This gate is split across $h_q$ attention heads, and each head's attention output is elementwise multiplied by its corresponding gate segment: $\tilde{\mathbf{o}}_{t,i} = \mathbf{o}^{\text{sdpa}}_{t,i} \odot \mathbf{g}_{t,i}$ where $\mathbf{o}^{\text{sdpa}}_{t,i}$ represents the scaled dot-product attention. The gated outputs are then concatenated and projected through the output matrix $\mathbf{W}^O$ to produce the final output.
+**Gated attention** applies an elementwise gating mechanism to the scaled dot-product attention output before the output projection. A gate vector $\mathbf{g}\_t = \sigma(\mathbf{W}^G \mathbf{x}\_t)$ is computed from the input, where $\sigma$ is the sigmoid function and $\mathbf{W}^G$ is a learned gate projection matrix. This gate is split across $h_q$ attention heads, and each head's attention output is elementwise multiplied by its corresponding gate segment: $\tilde{\mathbf{o}}\_{t,i} = \mathbf{o}^{\text{sdpa}}\_{t,i} \odot \mathbf{g}\_{t,i}$ where $\mathbf{o}^{\text{sdpa}}\_{t,i}$ represents the scaled dot-product attention. The gated outputs are then concatenated and projected through the output matrix $\mathbf{W}^O$ to produce the final output.
 
 Gated attention reduces attention sinks (tokens receiving disproportionately high attention), reduces large activations that destabilize training, and improves performance on evaluations and long-sequence generalization. Critically, it stabilizes training and reduces loss spikes, making it valuable for large-scale training.
 
