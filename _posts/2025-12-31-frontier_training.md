@@ -1,7 +1,7 @@
 ---
 title: "frontier model training methodologies"
 date: 2026-01-31
-tokens: "~26.8k"
+tokens: "~28.1k"
 reading_time: 72
 ---
 
@@ -10,6 +10,36 @@ How do labs train a frontier, multi-billion parameter model? We look towards Hug
 These notes are largely structured based on Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, Hermes 4, DeepSeek, and Kimi. Also, these notes have not been thoroughly reviewed. Any errors are entirely my responsibility.
 
 While this blog explores some infrastructure-related ideas like in-flight weight updates and multi-client orchestrators, there are many other ideas mentioned throughout those posts/blogs like expert parallelism and quantization. Hugging Face writes more about gpt-oss-120b's infrastructure [here](https://huggingface.co/blog/faster-transformers).
+
+# tl;dr
+
+- Frontier training is a systems problem: data mixture, architecture, and stability choices dominate most algorithmic tweaks.
+- Start from a strong baseline and ablate fast and reliably; derisk changes and avoid multi-variable edits.
+- For long context, document masking + RNoPE/YaRN-style scaling is a robust default; attention variants trade compute for reach.
+- GQA with small groups beats MHA and MQA in many ablations; MLA cuts KV cache but raises implementation complexity.
+- MoE is efficient when it is load-balanced; routing, auxiliary or bias balancing, and global stats are non-negotiable.
+- Tokenizer design should mirror target data; vocab size trades embedding cost against token compression and KV cache.
+- AdamW is still the default; Muon can help but needs careful infra (all-to-all, padding, scaling quirks).
+- Scaling laws guide, but many frontier models overtrain; inference cost and sparsity tradeoffs often drive final choices.
+- Data scheduling matters: multi-stage mixtures and late-stage high-quality injection shape final behavior.
+- Mid-training and post-training (SFT + preference/RL/distillation) often determine reasoning and tool-use behavior.
+- Training ops are frequent failure points: dataloader design, throughput, seeds in TP, and checkpointing.
+- Most blowups are boring: high LR, bad batches, load imbalance, or brittle storage.
+
+### a minimal training playbook
+
+1. Define the product goal and lock evals early across knowledge, math, code, long-context, and instruction following.
+2. Pick a baseline architecture with known failure modes; default to dense + GQA + RoPE/RNoPE unless MoE is essential.
+3. Choose a tokenizer matched to your target languages and domains; freeze vocab and special tokens early.
+4. Build the data pipeline with deduplication, filtering, and contamination checks; measure data quality explicitly.
+5. Run small ablations for attention, positional encoding, optimizer, and learning rate schedule; change one variable at a time.
+6. Plan a multi-stage data mixture; delay the best data and reasoning-heavy data toward the end.
+7. Add stability guardrails: z-loss/QK-norm decisions, gradient clipping, precision policy, loss spike alerts.
+8. Validate throughput on long runs and confirm dataloader behavior (packing, shuffling, random access).
+9. Run the main training with interval evals and consistent seeds, especially for tensor parallelism.
+10. Mid-train for domain gaps if SFT reveals them; extend context length gradually (4k → 32k → 64k → 128k).
+11. Post-train with SFT, then choose preference/RL/distillation based on verifiable rewards and tool-use goals.
+12. Re-evaluate, run safety checks, and lock a release checkpoint with full logs and configs.
 
 ### general practices
 
@@ -38,6 +68,13 @@ When choosing architecture, Hugging Face suggests following a decision tree such
 - memory-constrained (since MoEs must have all experts loaded)
 - new to LLM training (focus on basics)
 - tighter timeline (simpler training with well-documented recipes)
+
+### architecture decision heuristics
+
+- If you are memory- or infra-constrained, default to a dense model with GQA and RoPE/RNoPE.
+- If you need inference efficiency at scale and can manage routing complexity, consider MoE with strong load balancing.
+- If long context is a core requirement, plan for document masking plus RoPE scaling (ABF/YaRN) or RNoPE variants.
+- If you need simpler kernels and faster iteration, avoid novel attention variants unless you can ablate them cleanly.
 
 ### attention
 
@@ -138,7 +175,7 @@ Here, $T$ is the sequence length, $\alpha$ is a small coefficient, $\mathbb{1}(\
 
 Here, for each token at each position $t$ in the sequence, each expert $i$ is assigned a routing score $s\_{i,t}$, which is normalized so that $\tilde{s}\_{i,t}$ captures the proportion of the routing probability assigned to expert $i$ at position $t$. Averaging this over the whole sequence gives $P\_i$, which represents, on average, how often expert $i$ is considered for routing across the sequence. The $f\_i$ term furthers this by reflecting the fraction of times expert $i$ is actually selected (i.e., is among the top $K_r$ experts for a token, after bias terms $b_i$ are added). The loss $\mathcal{L}\_{\text{Bal}}$ encourages the product $f\_i P\_i$ to be similar across different experts, pushing the model toward evenly distributing routing decisions and load; if any expert is used much more or less than others, the loss will increase, nudging the model back toward balanced expert activation. 
 
-**Auxiliary-loss free load balancing** methods avoid introducing interference gradients by maintaining a bias vector $\mathbf{b}=[b_1, \cdots, b_{N_r}]$ which is updated in a decoupled fashion. Let $n_i$ be the number of tokens routed to expeert $i$ in the current step and $\bar{n}=\frac1{N_r} \sum_{i=1}^{N_r} n_i$ the mean load. $b_i$ is updated by 
+**Auxiliary-loss free load balancing** methods avoid introducing interference gradients by maintaining a bias vector $\mathbf{b}=[b_1, \cdots, b_{N_r}]$ which is updated in a decoupled fashion. Let $n_i$ be the number of tokens routed to expert $i$ in the current step and $\bar{n}=\frac1{N_r} \sum_{i=1}^{N_r} n_i$ the mean load. $b_i$ is updated by 
 
 $$
 \begin{align*}
@@ -159,7 +196,7 @@ b_i &\leftarrow b_i + m_i
 \end{align*}
 $$
 
-$\tanh$ applies the soft-clamping, with tunable scale $\kappa$ to control saturation speed; $\tanh$ over $\text{sign}(\cdot)$ maintains the continuity and stability needed during training whereas $\text{sign}$ foraces updates to be $\pm \lambda$, making the update step oscillate. Momentum also is intorudced as a form of noise dampening, analagous to momentum SGD reducing variance in noisy gradient updates
+$\tanh$ applies the soft-clamping, with tunable scale $\kappa$ to control saturation speed; $\tanh$ over $\text{sign}(\cdot)$ maintains the continuity and stability needed during training whereas $\text{sign}$ forces updates to be $\pm \lambda$, making the update step oscillate. Momentum also is introduced as a form of noise dampening, analogous to momentum SGD reducing variance in noisy gradient updates
 
 ### hybrid models
 
@@ -179,6 +216,13 @@ While this gets us closer to an RNN-esque structure, in practice, softmax stabil
 $$\mathbf{S}_t=\mathbf{G}_t \odot \mathbf{S}_{t-1} + \mathbf{v}_t\mathbf{k}_t^\top$$
 [Mamba-2](https://arxiv.org/abs/2405.21060) is among the most popular, being used in hybrid models like [Nemotron-H](https://arxiv.org/abs/2504.03624) and [Falcon H1](https://arxiv.org/abs/2507.22448). Hybrid models are becoming increasingly popular, notably in [Qwen3-Next](https://qwen.ai/blog?id=4074cca80393150c248e508aa62983f9cb7d27cd&from=research.latest-advancements-list) with a gated DeltaNet update and Kimi's next model, likely using their ["kimi delta attention."](https://github.com/fla-org/flash-linear-attention/pull/621)
 
+### architecture takeaways
+
+- Use a proven dense baseline unless you have strong reasons and infra to support MoE.
+- GQA with small groups is a robust default; MQA is cheapest but tends to underperform.
+- For long context, plan for RNoPE/YaRN plus document masking early in the recipe.
+- Hybrid architectures are promising but still harder to reason about and operationalize.
+
 # stability
 
 Training stability is crucial for successful large-scale model training. Several techniques help prevent training failures, including regularization methods, careful initialization, and architectural choices. The following sections cover key stability mechanisms:
@@ -197,7 +241,7 @@ Hugging Face tested this using a weight decay baseline, a no weight decay baseli
 
 ### qk norm
 
-Similar to $z$-loss, QK-norm helps prevent attention logits from becoming too large by applying LayerNorm to both the query and key vectors before computing attention. However, [the same paper which proposed RNoPE](https://arxiv.org/abs/2501.18795) found that it hurts long-context tasks because the normalization demphasizes relevant tokens and emphasizes irrelevant tokens by stripping the query-key dot product of its magnitude.
+Similar to $z$-loss, QK-norm helps prevent attention logits from becoming too large by applying LayerNorm to both the query and key vectors before computing attention. However, [the same paper which proposed RNoPE](https://arxiv.org/abs/2501.18795) found that it hurts long-context tasks because the normalization de-emphasizes relevant tokens and emphasizes irrelevant tokens by stripping the query-key dot product of its magnitude.
 
 ### RMSNorm
 
@@ -207,16 +251,23 @@ $$\mathbf{y}_\ell = \mathbf{x}_\ell + \text{RMSNorm}_\ell^{(2)}(\mathcal{M}_\ell
 
 where $\mathbf{x}\_\ell$ and $\mathbf{y}\_\ell$ are input/output of layer $\ell$, $\mathcal{M}\_\ell$ is the sublayer module (like attention, FFN, or MoE). The RMSNorm gain, $\gamma$, is a multiplicative factor applied after the RMS normalization, given by $\bar{a}\_i = \gamma\frac{a_i}{\text{RMSNorm(a)}}$. In Arcee's case, they initialize $\gamma\left(\text{RMSNorm}_\\ell^{(1)}\right)=1$ and $\gamma\left(\text{RMSNorm}\_\ell^{(2)}\right)=\frac1{\sqrt{L}}$. This depth-dependent scaling accounts for the fact that activations evolve differently across layers. The sandwich pattern (pre-norm and post-norm) provides additional stability, especially in very deep networks where gradient flow can be challenging.
 
-Arcee also applyies RMSNorm before the language modeling head stabilizes the final hidden states to ensure consistent output activation scales before they are transformed into token probabilities. 
+Arcee also applies RMSNorm before the language modeling head stabilizes the final hidden states to ensure consistent output activation scales before they are transformed into token probabilities. 
 
 ### other design considerations
 
 1. **Parameter initialization**: either normalization initialization with $\mu=0$ and clipping as TruncDNormal initialization does (often with $\pm 2-3 \sigma$) or a scheme like $\mu\text{P}$ ([maximal update parametrization](https://arxiv.org/abs/2011.14522)) which dictates how weights and learning rates should scale with width so that training dynamics stay comparable. 
     - The clipping prevents extreme initialization values that could destabilize training, which is particularly important for embedding layers where large initial activations can propagate through the network. 
     - Another heuristic is setting $\sigma=\frac{0.5}{\sqrt{d}}$ where $d$ is model dimension, although the exact coefficient can vary. 
-    - During the forward pass, the embedding layer's activations are scaled by $\sqrt{d}$: $\mathbf{e}_T=\sqrt{d} E(\text{tok}_t)$. TODO: WHY? . Notably, Grok-1 and Grok-2 checkpoints as well as Trinity Large and the first two generations of the Gemma models implement this.
+    - During the forward pass, the embedding layer's activations are scaled by $\sqrt{d}$: $\mathbf{e}_T=\sqrt{d} E(\text{tok}_t)$. This keeps embedding magnitudes in a stable range relative to the residual stream and is common in several transformer implementations. Notably, Grok-1 and Grok-2 checkpoints as well as Trinity Large and the first two generations of the Gemma models implement this.
 2. **Activation Function**: SwiGLU is what most modern LLMs use, not ReLU or GeLU; for example, gpt-oss-120b uses gated SwiGLU. Some exceptions are Gemma2 using GeGLU and nvidia using $\text{relu}^2$. 
 3. **Width vs Height**: deeper models tend to outperform equally sized wider ones on language modeling and compositional tasks. In smaller models, this is more pronounced, but larger models make use of wider models for faster inference due to modern architectures supporting better parallelism. 
+
+### stability takeaways
+
+- Stabilization is mostly about sane defaults, not exotic tricks.
+- QK-norm can hurt long-context tasks; don’t assume it’s “always good.”
+- Initialization and normalization details matter more as depth grows.
+- Track loss spikes early; many “mystery failures” are configuration or data issues.
 
 # tokenizer
 
@@ -321,7 +372,7 @@ A useful proxy is that for optimizers like AdamW or Muon, if the batch size incr
 
 As training progresses, the critical batch size grows. Initially, since the model is making large updates, $\lvert \lvert g \rvert \rvert^2$ is large so the model should have a small critical batch size. After the model stabilizes, larger batches become more effective. This motivates the idea of *batch size warmup*.
 
-**Imbalanced minibatches** can arise when sequence packing or data distribution creates batches with highly variable sequence lengths or domain compositions, whichcan cause gradient variance that destabilizes training; this is especailly true when certain experts or model components receive disproportionately many or few tokens. 
+**Imbalanced minibatches** can arise when sequence packing or data distribution creates batches with highly variable sequence lengths or domain compositions, which can cause gradient variance that destabilizes training; this is especially true when certain experts or model components receive disproportionately many or few tokens. 
 
 Arcee introduces **random sequential document buffer (RSDB)** to reduce intra-batch correlation. After tokenizing a document, it works by loading the token sequence as an entry in the RSDB with a read head at index 0; this is repeated until the RSDB is full. From a randomly sampled index in a randomly sampled document from the RSDB, tokens are read based on the read head and the index and added to a separate sequence buffer. Read head positions are updated, and if the sequence buffer is full, we return; otherwise, we randomly select another document index and continue to read tokens into the sequence buffer, repeating until the sequence buffer is full.
 
@@ -387,6 +438,13 @@ For new stages (using a checkpoint at around 7T out of the total 11T tokens), th
 Using data from [DCLM](https://arxiv.org/abs/2406.11794) and FineWeb, Nous first performs semantic deduplication using embeddings at a cosine similarity of 0.7, and then uses an LLM-as-judge to filter out incomplete or ill-formatted messages. Then, they process pre-training data through **DataForge**, a graph-based synthetic data generator, which allows for large and complex structures. By taking a random walk through a directed acyclic graph where nodes implement a mapping from struct $\to$ struct such that if there is an edge from node $A$ to node $B$, the postconditions guaranteed by $A$ must satisfy the preconditions of $B$. QA pairs are generated using this workflow with intermediary transformations into other mediums (e.g. a wikipedia article into a rap song), question generation and then questions/answers annotations using an LLM-as-judge to grade the instruction and response. Also, to find a covering set of data-scarce domains of special interest, they recursively (*depth-first-search*) generate a taxonomy of subdomains where the leaves are prompts and the LLM enumerates $n$ subdomains to form a partition.
 
 The DataForge-generated data is used in both pre-training and post-training stages, with specific details provided in the post-training data section below.
+
+### data takeaways
+
+- Data quality and mixture often dominate architecture tweaks at fixed compute.
+- Multi-stage schedules help: save the best data for late training to shape final behavior.
+- Deduplication and contamination checks are non-optional if you care about honest evals.
+- Ablate data mixtures at scale; small-model ablations can be misleading.
 
 # mid-training
 
@@ -514,7 +572,7 @@ The learning rate for SFT is usually an order of magnitude smaller than that for
 
 Once a good data mixture is identified and hyperparameters are tuned, training on more than one epoch (what was usually done in ablations) also leads to increased performance by a few percentage points; on LiveCodeBench v4, performance nearly doubled from epoch two to three.
 
-An interesting idea explored is whether the optimizers for pre/post-training should be the same. AdamW remains the default choice for both pre/post-training, and when tested with Muon, using the same optimiser still yielded the best performance.
+An interesting idea explored is whether the optimizers for pre/post-training should be the same. AdamW remains the default choice for both pre/post-training, and when tested with Muon, using the same optimizer still yielded the best performance.
 
 ### preference optimization (PO)
 
@@ -641,6 +699,13 @@ DeepSeek shares other experimental methods when developing DeepSeek-R1 that ulti
 
 They also explored **process reward models**, which rewards intermediate thoughts in multi-step tasks. DeepSeek acknowledges three limitations: defining a fine-grained step in general reasoning is difficult, determining whether the current intermediate step is difficult (LLM-as-judge might not yield satisfactory results), and it leads to reward hacking because the model would optimize for the appearance of good reasoning without doing the underlying work.
 
+### post-training takeaways
+
+- SFT is the stable baseline; preference/RL methods should be justified by verifiable rewards or clear gains.
+- Hybrid reasoning models need careful length control to avoid reward hacking.
+- Tool-use and agentic datasets are now first-class post-training targets.
+- Many “fancy” methods fail in practice; track what doesn’t work, not just what does.
+
 # behaviors and safety
 
 ### safety testing and mitigation
@@ -702,3 +767,10 @@ Inference throughput should scale linearly with the number of nodes used. Howeve
 There are a few common culprits for training instabilities: high learning rate, bad data, data-parameter state interactions ([spikes can come from specific combinations of data batches and model parameter states](https://arxiv.org/abs/2204.02311)), poor initialisation ([OLMo2](https://arxiv.org/abs/2501.00656) revealed that $\mathcal{N}(0, 0.02)$ can improve stability upon scaled initialisation), and precision (eww, not fp16).
 
 Besides aforementioned ideas like **z-loss** or **QKNorm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tightening gradient clipping**.
+
+### training ops takeaways
+
+- Throughput failures are often data pipeline or storage issues, not model code.
+- Dataloader behavior (shuffling, packing, access patterns) can silently change training dynamics.
+- Seed handling in parallelism setups is a high-leverage detail; verify it early.
+- Treat evals and logging as first-class citizens; they are how you notice regressions.
