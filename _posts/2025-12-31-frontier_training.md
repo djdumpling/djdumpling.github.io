@@ -204,7 +204,7 @@ $$
 \mathbf{o}_t = \sum_{j=1}^t \frac{\exp(\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j}{\sum_{l=1}^t \exp(\mathbf{q}_t^\top \mathbf{k}_l)} \Longrightarrow \mathbf{o}_t = \sum_{j=1}^t (\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j = \left(\sum_{j=1}^t \mathbf{v}_j \mathbf{k}_j^\top\right)\mathbf{q}_t
 $$
 
-where $\mathbf{q}\_t$, $\mathbf{k}\_j$, and $\mathbf{v}_\j$ are the query, key, and value vectors at positions $t$ and $j$, respectively, and $\mathbf{o}\_t$ is the output at position $t$. By defining $S\_t :=\sum_{j=1}^t \mathbf{k}\_j \mathbf{v}\_j^\top$, then we get a recurrent relation where $S\_t$ summarizes all past $(k\_j, v\_j)$ pairs:
+where $\mathbf{q}\_t$, $\mathbf{k}\_j$, and $\mathbf{v}\_j$ are the query, key, and value vectors at positions $t$ and $j$, respectively, and $\mathbf{o}\_t$ is the output at position $t$. By defining $S\_t :=\sum_{j=1}^t \mathbf{k}\_j \mathbf{v}\_j^\top$, then we get a recurrent relation where $S\_t$ summarizes all past $(k\_j, v\_j)$ pairs:
 
 $$
 S_t=S_{t-1}+\mathbf{k}_t \mathbf{v}_t^\top \Longrightarrow \mathbf{o}_t = S_t \mathbf{q}_t = S_{t-1}\mathbf{q}_t+\mathbf{v}_t\left(\mathbf{k}_t^\top \mathbf{q}_t\right)
@@ -248,7 +248,7 @@ RMSNorm maintains comparable performance to LayerNorm while being computationall
 
 $$\mathbf{y}_\ell = \mathbf{x}_\ell + \text{RMSNorm}_\ell^{(2)}(\mathcal{M}_\ell(\text{RMSNorm}_\ell^{(1)}(\mathbf{x}_\ell)))$$
 
-where $\mathbf{x}\_\ell$ and $\mathbf{y}\_\ell$ are input/output of layer $\ell$, $\mathcal{M}\_\ell$ is the sublayer module (like attention, FFN, or MoE). The RMSNorm gain, $\gamma$, is a multiplicative factor applied after the RMS normalization, given by $\bar{a}\_i = \gamma\frac{a_i}{\text{RMSNorm(a)}}$. In Arcee's case, they initialize $\gamma\left(\text{RMSNorm}_\\ell^{(1)}\right)=1$ and $\gamma\left(\text{RMSNorm}\_\ell^{(2)}\right)=\frac1{\sqrt{L}}$. This depth-dependent scaling accounts for the fact that activations evolve differently across layers. The sandwich pattern (pre-norm and post-norm) provides additional stability, especially in very deep networks where gradient flow can be challenging.
+where $\mathbf{x}\_\ell$ and $\mathbf{y}\_\ell$ are input/output of layer $\ell$, $\mathcal{M}\_\ell$ is the sublayer module (like attention, FFN, or MoE). The RMSNorm gain, $\gamma$, is a multiplicative factor applied after the RMS normalization, given by $\bar{a}\_i = \gamma\frac{a_i}{\text{RMSNorm(a)}}$. In Arcee's case, they initialize $\gamma\left(\text{RMSNorm}\_\ell^{(1)}\right)=1$ and $\gamma\left(\text{RMSNorm}\_\ell^{(2)}\right)=\frac1{\sqrt{L}}$. This depth-dependent scaling accounts for the fact that activations evolve differently across layers. The sandwich pattern (pre-norm and post-norm) provides additional stability, especially in very deep networks where gradient flow can be challenging.
 
 Arcee also applies RMSNorm before the language modeling head stabilizes the final hidden states to ensure consistent output activation scales before they are transformed into token probabilities. 
 
@@ -332,7 +332,7 @@ $$
 S_\text{max}^h = \frac1{\sqrt{d}} \max_{\mathbf{X} \in B} \max_{i, j} \mathbf{Q}_i^h \mathbf{K}_j^{h\top}
 $$
 
-where $d$ is the dimension of the query/key vectors, $i$ and $j$ index positions in the sequence, and the $\frac1{\sqrt{d}}$ scaling factor matches the standard attention scaling. Set $S_\text{max} = \max_h S_\text{max}^h$ (the maximum across all heads) and target threshold $\tau$ (a hyperparameter controlling when clipping activates). The idea is to rescale $\mathbf{W}\_k^h$ and $\mathbf{W}\_q^h$ (the key and query projection weight matrices for head $h$) whenever $S_\\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S\_\text{max}})$ (the global clipping factor), one approach is to clip all heads simultaneously by
+where $d$ is the dimension of the query/key vectors, $i$ and $j$ index positions in the sequence, and the $\frac1{\sqrt{d}}$ scaling factor matches the standard attention scaling. Set $S_\text{max} = \max_h S_\text{max}^h$ (the maximum across all heads) and target threshold $\tau$ (a hyperparameter controlling when clipping activates). The idea is to rescale $\mathbf{W}\_k^h$ and $\mathbf{W}\_q^h$ (the key and query projection weight matrices for head $h$) whenever $S\_\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S\_\text{max}})$ (the global clipping factor), one approach is to clip all heads simultaneously by
 
 $$
 \mathbf{W}_q^h \leftarrow \gamma^\alpha \mathbf{W}_q^h \quad \mathbf{W}_k^h \leftarrow \gamma^{1-\alpha} \mathbf{W}_k^h
