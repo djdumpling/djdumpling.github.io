@@ -14,7 +14,7 @@ These notes are largely structured based on Hugging Face's [SmolLM3 report](http
 - Frontier training is a systems problem: data mixture, architecture, and stability choices dominate most algorithmic tweaks.
 - Start from a strong baseline and ablate fast and reliably; derisk changes and avoid multi-variable edits.
 - For long context, document masking + RNoPE/YaRN-style scaling is a robust default; attention variants trade compute for reach.
-- GQA with small groups beats MHA and MQA in many ablations; MLA cuts KV cache but raises implementation complexity.
+- GQA with small groups (2/4/8 groups) typically outperforms MHA and MQA in ablations at similar model scales; MLA cuts KV cache but raises implementation complexity.
 - MoE is efficient when it is load-balanced; routing, auxiliary or bias balancing, and global stats are non-negotiable.
 - Tokenizer design should mirror target data; vocab size trades embedding cost against token compression and KV cache.
 - AdamW is still the default; Muon can help but needs careful infra (all-to-all, padding, scaling quirks).
@@ -22,7 +22,7 @@ These notes are largely structured based on Hugging Face's [SmolLM3 report](http
 - Data scheduling matters: multi-stage mixtures and late-stage high-quality injection shape final behavior.
 - Mid-training and post-training (SFT + preference/RL/distillation) often determine reasoning and tool-use behavior.
 - Training ops are frequent failure points: dataloader design, throughput, seeds in TP, and checkpointing.
-- Most blowups are boring: high LR, bad batches, load imbalance, or brittle storage.
+- Most training failures stem from common causes: high learning rates, problematic data batches, load imbalance in MoE models, or storage/infrastructure issues (see "the usual suspects" section for details).
 
 ### a minimal training playbook
 
@@ -78,11 +78,11 @@ When choosing architecture, Hugging Face suggests following a decision tree such
 
 Multi-head attention (MHA) uses separate query, key, and value projections for each attention head, but this creates a large KV-cache that becomes an inference bottleneck and GPU memory hoarder. To address this, researchers developed [multi-query attention](https://arxiv.org/abs/1911.02150) (MQA) and [grouped query attention](https://arxiv.org/abs/2305.13245) (GQA). In MQA, KV values are shared across all heads, but this comes at a cost of leaking attention capacity because heads can't store information specialized to each head's role. GQA softens this issue by sharing KV values across a small group of heads (e.g. 4). Another alternative is multi-latent attention (MLA) which stores a compressed latent variable that can be decompressed/projected into KV values at runtime. The latent variable is typically much smaller than the full KV cache (often achieving 4-8x compression), and this results in a KV-cache parameter count more comparable to GQA while maintaining performance stronger than MQA. 
 
-When ablating (for variables that change the parameter count such as changing MHA to GQA, they occasionally adjust other hyperparameters to keep model sizes roughly the same), Hugging Face found that **GQA with small groups beats MHA** and that **MHA beats MQA and GQA with 16 groups**. Across benchmarks like HellaSwag, MMLU, and ARC, GQA with 2/4/8 groups does best.
+When ablating (for variables that change the parameter count such as changing MHA to GQA, they occasionally adjust other hyperparameters to keep model sizes roughly the same), Hugging Face found that **GQA with small groups (2/4/8) outperformed MHA** in their ablations and that **MHA outperformed MQA and GQA with 16 groups**. Across benchmarks like HellaSwag, MMLU, and ARC, GQA with 2/4/8 groups performed best in their experiments.
 
 ### gated attention
 
-**Gated attention** applies an elementwise gating mechanism to the scaled dot-product attention output before the output projection. A gate vector $\mathbf{g}\_t = \sigma(\mathbf{W}^G \mathbf{x}\_t)$ is computed from the input, where $\sigma$ is the sigmoid function and $\mathbf{W}^G$ is a learned gate projection matrix. This gate is split across $h_q$ attention heads, and each head's attention output is elementwise multiplied by its corresponding gate segment: $\tilde{\mathbf{o}}\_{t,i} = \mathbf{o}^{\text{sdpa}}\_{t,i} \odot \mathbf{g}\_{t,i}$ where $\mathbf{o}^{\text{sdpa}}\_{t,i}$ represents the scaled dot-product attention. The gated outputs are then concatenated and projected through the output matrix $\mathbf{W}^O$ to produce the final output.
+**Gated attention** applies an elementwise gating mechanism to the scaled dot-product attention output before the output projection. A gate vector $\mathbf{g}_t = \sigma(\mathbf{W}^G \mathbf{x}_t)$ is computed from the input, where $\mathbf{x}_t$ is the input at position $t$, $\sigma$ is the sigmoid function, and $\mathbf{W}^G$ is a learned gate projection matrix. This gate is split across $h_q$ attention heads (where $h_q$ is the number of query heads), and each head's attention output is elementwise multiplied by its corresponding gate segment: $\tilde{\mathbf{o}}_{t,i} = \mathbf{o}^{\text{sdpa}}_{t,i} \odot \mathbf{g}_{t,i}$ where $\mathbf{o}^{\text{sdpa}}_{t,i}$ represents the scaled dot-product attention output for head $i$ at position $t$, $\odot$ denotes elementwise multiplication, and $\mathbf{g}_{t,i}$ is the gate segment for head $i$. The gated outputs are then concatenated and projected through the output matrix $\mathbf{W}^O$ to produce the final output.
 
 Gated attention reduces attention sinks (tokens receiving disproportionately high attention), reduces large activations that destabilize training, and improves performance on evaluations and long-sequence generalization. Critically, it stabilizes training and reduces loss spikes, making it valuable for large-scale training.
 
@@ -131,7 +131,7 @@ Hugging Face ran ablations using RoPE, RNoPE (removing positional encoding every
 <img src="/public/training/attention.png" alt="Attention patterns comparison showing causal masking, chunked attention, sliding window attention, RoPE ABF, and DCA" style="width: 75%; display: block; margin: 0 auto;">
 *Figure 4*: five common types of attention. From [Hugging Face](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook). 
 
-An alternative to adjusting positional encodings for long contexts is specifying the strength with which tokens can attend to one another. 
+**Note:** This section covers attention pattern modifications (which change which tokens can attend to which other tokens). These are distinct from positional encoding scaling methods like ABF/YaRN (discussed in the "positional encodings" section), which adjust how position information is encoded without changing attention patterns. The following methods modify attention patterns to reduce computational cost: 
 
 - **Chunked Attention**: divides the sequence into fixed-sized chunks where tokens can only attend within their chunk. [Llama 4](https://ai.meta.com/blog/llama-4-multimodal-intelligence/) pairs RNoPE (specifically the RoPE layers) which also reduces the KV cache size per layer, but its performance on long context tasks degraded.
 - **Sliding Window Attention (SWA)**: every token can see up to $p$ positions back, creating a sliding window that maintains local context. [Gemma 3](https://arxiv.org/abs/2503.19786) combined SWA with full attention every other layer.
@@ -152,7 +152,7 @@ To determine how large each expert should be, a common metric is granularity, de
 
 **Shared experts** are always-on experts, which absorb the basic, recurring patterns so that other experts can more aggressively specialize; one is often enough ([DeepSeek-V2](https://arxiv.org/abs/2405.04434) uses two, which adds a bit of complexity).
 
-**Load balancing** is crucial in that if it fails, not only do training and inference efficiency plummet, but so do effective learning capacity. The routing mechanism typically uses **top-k gating**: for each token, the router computes affinity scores (often via a learned linear projection followed by softmax), selects the top $k$ experts, and routes the token to those experts. To ensure balanced expert utilization, this can be addressed by adding a **loss-based load balancer** (LBL) given by $\mathcal{L} = \alpha \sum_{i=1}^{N_r} f_i P_i$ where $\alpha$ determines the strength, $f_i$ is the fraction of tokens going through expert $i$, and $P_i$ is the probability mass that sums the probability of tokens going through an expert; so in perfect load balancing, $f_i=P_i=\frac1{N_r}$. Also, $\alpha$ should not be so large that routing uniformity overwhelms the primary training objective. These should be monitored using *global statistics*, not local statistics which may suffer from a local batch being narrow, biasing the routing statistics. 
+**Load balancing** is crucial in that if it fails, not only do training and inference efficiency plummet, but so do effective learning capacity. The routing mechanism typically uses **top-k gating**: for each token, the router computes affinity scores (often via a learned linear projection followed by softmax), selects the top $k$ experts, and routes the token to those experts. To ensure balanced expert utilization, this can be addressed by adding a **loss-based load balancer** (LBL) given by $\mathcal{L} = \alpha \sum_{i=1}^{N_r} f_i P_i$ where $N_r$ is the total number of experts, $\alpha$ determines the strength of the balancing term, $f_i$ is the fraction of tokens routed to expert $i$, and $P_i$ is the probability mass (average routing probability) for expert $i$; so in perfect load balancing, $f_i=P_i=\frac1{N_r}$. Also, $\alpha$ should not be so large that routing uniformity overwhelms the primary training objective. These should be monitored using *global statistics*, not local statistics which may suffer from a local batch being narrow, biasing the routing statistics. 
 
 [DeepSeek-V3](https://arxiv.org/abs/2412.19437) does loss-free load balancing differently, by adding a bias term to affinity scores going into the routing softmax.
 
@@ -173,7 +173,7 @@ Here, $T$ is the sequence length, $\alpha$ is a small coefficient, $\mathbb{1}(\
 
 Here, for each token at each position $t$ in the sequence, each expert $i$ is assigned a routing score $s\_{i,t}$, which is normalized so that $\tilde{s}\_{i,t}$ captures the proportion of the routing probability assigned to expert $i$ at position $t$. Averaging this over the whole sequence gives $P\_i$, which represents, on average, how often expert $i$ is considered for routing across the sequence. The $f\_i$ term furthers this by reflecting the fraction of times expert $i$ is actually selected (i.e., is among the top $K_r$ experts for a token, after bias terms $b_i$ are added). The loss $\mathcal{L}\_{\text{Bal}}$ encourages the product $f\_i P\_i$ to be similar across different experts, pushing the model toward evenly distributing routing decisions and load; if any expert is used much more or less than others, the loss will increase, nudging the model back toward balanced expert activation. 
 
-**Auxiliary-loss free load balancing** methods avoid introducing interference gradients by maintaining a bias vector $\mathbf{b}=[b_1, \cdots, b_{N_r}]$ which is updated in a decoupled fashion. Let $n_i$ be the number of tokens routed to expert $i$ in the current step and $\bar{n}=\frac1{N_r} \sum_{i=1}^{N_r} n_i$ the mean load. $b_i$ is updated by 
+**Auxiliary-loss free load balancing** methods avoid introducing interference gradients by maintaining a bias vector $\mathbf{b}=[b_1, \cdots, b_{N_r}]$ which is updated in a decoupled fashion. Let $n_i$ be the number of tokens routed to expert $i$ in the current step and $\bar{n}=\frac1{N_r} \sum_{i=1}^{N_r} n_i$ the mean load across all experts. $b_i$ is updated by 
 
 $$
 \begin{align*}
@@ -204,14 +204,15 @@ $$
 \mathbf{o}_t = \sum_{j=1}^t \frac{\exp(\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j}{\sum_{l=1}^t \exp(\mathbf{q}_t^\top \mathbf{k}_l)} \Longrightarrow \mathbf{o}_t = \sum_{j=1}^t (\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j = \left(\sum_{j=1}^t \mathbf{v}_j \mathbf{k}_j^\top\right)\mathbf{q}_t
 $$
 
-And by defining $S_t :=\sum_{j=1}^t \mathbf{k}_j \mathbf{v}_j^\top$, then we get a recurrent relation where $S_t$ summarizes all past $(k_j, v_j)$.
+where $\mathbf{q}_t$, $\mathbf{k}_j$, and $\mathbf{v}_j$ are the query, key, and value vectors at positions $t$ and $j$, respectively, and $\mathbf{o}_t$ is the output at position $t$. By defining $S_t :=\sum_{j=1}^t \mathbf{k}_j \mathbf{v}_j^\top$, then we get a recurrent relation where $S_t$ summarizes all past $(k_j, v_j)$ pairs:
 
 $$
 S_t=S_{t-1}+\mathbf{k}_t \mathbf{v}_t^\top \Longrightarrow \mathbf{o}_t = S_t \mathbf{q}_t = S_{t-1}\mathbf{q}_t+\mathbf{v}_t\left(\mathbf{k}_t^\top \mathbf{q}_t\right)
 $$
 
-While this gets us closer to an RNN-esque structure, in practice, softmax stabilizes training, and the linear form can cause instability without normalization. With RNNs, it is sometimes helpful to forget the past, by introducing a gate $\mathbf{G}_t$ for the previous state 
+where $S_{t-1}$ is the state from the previous time step. While this gets us closer to an RNN-esque structure, in practice, softmax stabilizes training, and the linear form can cause instability without normalization. With RNNs, it is sometimes helpful to forget the past, by introducing a gate $\mathbf{G}_t$ for the previous state 
 $$\mathbf{S}_t=\mathbf{G}_t \odot \mathbf{S}_{t-1} + \mathbf{v}_t\mathbf{k}_t^\top$$
+where $\odot$ denotes elementwise multiplication and $\mathbf{G}_t$ is a learned gating mechanism.
 [Mamba-2](https://arxiv.org/abs/2405.21060) is among the most popular, being used in hybrid models like [Nemotron-H](https://arxiv.org/abs/2504.03624) and [Falcon H1](https://arxiv.org/abs/2507.22448). Hybrid models are becoming increasingly popular, notably in [Qwen3-Next](https://qwen.ai/blog?id=4074cca80393150c248e508aa62983f9cb7d27cd&from=research.latest-advancements-list) with a gated DeltaNet update and Kimi's next model, likely using their ["kimi delta attention."](https://github.com/fla-org/flash-linear-attention/pull/621)
 
 ### architecture takeaways
@@ -237,7 +238,7 @@ Despite being a regularization technique, removing weight decay from embeddings 
 
 Hugging Face tested this using a weight decay baseline, a no weight decay baseline, and another combining all previous adopted changes and found no significant loss or eval results, so they included no weight decay.
 
-### qk norm
+### QK-norm
 
 Similar to $z$-loss, QK-norm helps prevent attention logits from becoming too large by applying LayerNorm to both the query and key vectors before computing attention. However, [the same paper which proposed RNoPE](https://arxiv.org/abs/2501.18795) found that it hurts long-context tasks because the normalization de-emphasizes relevant tokens and emphasizes irrelevant tokens by stripping the query-key dot product of its magnitude.
 
@@ -298,7 +299,7 @@ $$
 \end{align*}
 $$
 
-Even for modern LLMs, the hyperparameters remain largely unchanged: weight decay factor $\lambda=0.1$ or $\lambda=0.01$, $\beta_1=0.9$, and $\beta_2=0.95$. 
+where $\theta$ denotes the model parameters, $\alpha$ is the learning rate, $\lambda$ is the weight decay coefficient, $g_t$ is the gradient at step $t$, $m_t$ and $v_t$ are the first and second moment estimates (exponentially weighted averages), $\hat{m}_t$ and $\hat{v}_t$ are bias-corrected versions, $\beta_1$ and $\beta_2$ are exponential decay rates for the moment estimates, and $\epsilon$ is a small constant (typically $10^{-8}$) to prevent division by zero. Even for modern LLMs, the hyperparameters remain largely unchanged: weight decay factor $\lambda=0.1$ or $\lambda=0.01$, $\beta_1=0.9$, and $\beta_2=0.95$. 
 
 ### muon
 
@@ -313,7 +314,7 @@ O_t &\leftarrow \text{NewtonSchulz5}(B_t) \\
 \end{align*}
 $$
 
-where $B_0=0$, and NewtonSchulz5 describes the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) and [this blog](https://kellerjordan.github.io/posts/muon/) describe the algebra of it in more detail as well as why the coefficients are what they are. The Newton-Schulz iteration approximates the matrix sign function: we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because iteratively applying $f$ (i.e., $f \circ f \circ \cdots f(x)$) converges to the sign function, which normalizes the singular values. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. 
+where $\theta_t$ denotes the model parameters at step $t$, $\mathcal{L}_t$ is the loss function, $g_t$ is the gradient matrix, $G_t$ is the normalized gradient matrix (typically $G_t = g_t / \|g_t\|$), $B_t$ is a momentum buffer matrix with $B_0=0$, $\mu$ is the momentum coefficient, $\eta$ is the learning rate, and $\text{NewtonSchulz5}$ applies the odd function $f(x)=3.4445x-4.7750x^3+2.0315x^5$. [This blog](https://docs.modula.systems/algorithms/newton-schulz/) and [this blog](https://kellerjordan.github.io/posts/muon/) describe the algebra of it in more detail as well as why the coefficients are what they are. The Newton-Schulz iteration approximates the matrix sign function: we can estimate the SVD decompositions of $G=U \Sigma V^\top$ by $UV^\top$, and $f(x)$ essentially replaces $\Sigma$ because iteratively applying $f$ (i.e., $f \circ f \circ \cdots f(x)$) converges to the sign function, which normalizes the singular values. This has the effect of reducing axis-aligned bias and encouraging exploration of directions that would otherwise be suppressed. 
 
 Muon is more sample-efficient than AdamW, especially at large batch sizes where AdamW struggles. Some implementations, including Arcee's Trinity Large, choose a hybrid approach: using muon for hidden layers while keeping AdamW for embedding and output layers. This decision stems from the different optimization dynamics these layers exhibit—embeddings and output projections benefit from per-parameter adaptive learning rates, while hidden layers capture more benefit from muon's matrix-level structure awareness.
 
@@ -323,15 +324,15 @@ The alternative that Prime adapts is based on **all-to-all collectives** which d
 
 ---
 
-Building on Muon, Kimi K2 introduces **MuonClip**, a stabilization technique that prevents exploding attention logits, which is a common failure mode in large-scale training. Other strategies include [logit soft-cap](https://arxiv.org/abs/2408.00118), which applies $\tanh$ clipping to the pre-softmax logits, or QK norm, which applies LayerNorm to the QK matrices. However, these lead to issues of the scaled dot-product exploding (making bounding too late) and distorted gradients around regions where the model is unstable in logit soft-cap, and key matrices are not materialized during inference (projected from a latent variable). 
+Building on Muon, Kimi K2 introduces **MuonClip**, a stabilization technique that prevents exploding attention logits, which is a common failure mode in large-scale training. Other strategies include [logit soft-cap](https://arxiv.org/abs/2408.00118), which applies $\tanh$ clipping to the pre-softmax logits, or QK-norm, which applies LayerNorm to the QK matrices. However, these lead to issues of the scaled dot-product exploding (making bounding too late) and distorted gradients around regions where the model is unstable in logit soft-cap, and key matrices are not materialized during inference (projected from a latent variable). 
 
-For each attention head $h$, consider $\mathbf{Q}^h$, $\mathbf{K}^h$, and $\mathbf{V}^h$. For a batch $B$ and input representation $\mathbf{X}$, define the **max logit** as a per-head scalar to be the maximum input to softmax
+For each attention head $h$, consider $\mathbf{Q}^h$, $\mathbf{K}^h$, and $\mathbf{V}^h$ (the query, key, and value matrices for head $h$). For a batch $B$ and input representation $\mathbf{X}$, define the **max logit** as a per-head scalar to be the maximum input to softmax
 
 $$
 S_\text{max}^h = \frac1{\sqrt{d}} \max_{\mathbf{X} \in B} \max_{i, j} \mathbf{Q}_i^h \mathbf{K}_j^{h\top}
 $$
 
-Set $S_\text{max} = \max_h S_\text{max}^h$ and target threshold $\tau$. The idea is to rescale $\mathbf{W}_k$ and $\mathbf{W}_q$ whenever $S_\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S_\text{max}})$, one approach is to clip all heads simultaneously by
+where $d$ is the dimension of the query/key vectors, $i$ and $j$ index positions in the sequence, and the $\frac1{\sqrt{d}}$ scaling factor matches the standard attention scaling. Set $S_\text{max} = \max_h S_\text{max}^h$ (the maximum across all heads) and target threshold $\tau$ (a hyperparameter controlling when clipping activates). The idea is to rescale $\mathbf{W}_k^h$ and $\mathbf{W}_q^h$ (the key and query projection weight matrices for head $h$) whenever $S_\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S_\text{max}})$ (the global clipping factor), one approach is to clip all heads simultaneously by
 
 $$
 \mathbf{W}_q^h \leftarrow \gamma^\alpha \mathbf{W}_q^h \quad \mathbf{W}_k^h \leftarrow \gamma^{1-\alpha} \mathbf{W}_k^h
@@ -347,6 +348,8 @@ O_t &\leftarrow \text{NewtonSchulz5}(B_t) \cdot \sqrt{\max(n,m)} \cdot 0.2 \\
 \theta_t &\leftarrow (1-\eta \lambda)\theta_{t-1} - \eta O_t
 \end{align*}
 $$
+
+where $n$ and $m$ are the dimensions of the weight matrix $\mathbf{W}$, $\sqrt{\max(n,m)} \cdot 0.2$ is a scaling factor that adapts the update magnitude to the matrix size (matching Adam's RMS scaling behavior), and other symbols follow the same definitions as in the standard Muon algorithm. The weight decay term $(1-\eta \lambda)$ is applied multiplicatively before the gradient update.
 
 <img src="/public/training/muon_clip.png" alt="Maximum logits for KimiK2 with MuonClip and tau=100." style="width: 75%; display: block; margin: 0 auto;">
 *Figure 6*: Left: a mid-scale training run on a 9B active, 53B total MoE where attention logits diverge quickly. Right: maximum logits for KimiK2 with MuonClip and $\tau=100$, where max logits eventually decays to a stable range after ~30% of the training steps. From [Kimi K2](https://arxiv.org/pdf/2507.20534).
@@ -602,9 +605,9 @@ SFT and PO can hit ceilings because fundamentally, they optimize to produce outp
 
 In RLHF (**RL from human feedback**), human comparisons are provided, and a *reward model* is trained to predict the human preference signal. Then, the policy is fine-tuned with RL to maximize the learned reward. This way, RLHF does **on-policy optimization** since it does rollouts using the current policy used in training and updates based on the reward given by the reward model. This also allows RLHF to discover behaviors not present in the preference dataset. 
 
-In RLVR (**RL with verifiable rewards**), popularised by DeepSeek-R1, *verifiers* check whether a model's output matches criteria (e.g. whether it produced the correct math answer or passed all code unit tests). Then, the policy is fine-tuned to produce more verifiably-correct outputs. While RLHF requires human preference labels, RLVR uses automated verifiers (e.g., code test suites, math solvers) for reward signals, making it more scalable and objective.
+In RLVR (**RL with verifiable rewards**), popularised by DeepSeek-R1, *verifiers* check whether a model's output matches criteria (e.g. whether it produced the correct math answer or passed all code unit tests) to generate reward signals, making it more scalable and objective. Then, the policy is fine-tuned to produce more verifiably-correct outputs. RLVR is particularly valuable when reward drift is a concern (verifiers provide very stable signals compared to learned reward models), when KL control is needed to prevent policy collapse, and when addressing stale-policy artifacts in multi-step reasoning tasks.
 
-Although policy optimization algorithms are commonly on-policy, like GRPO, in practice, to maximize throughput, they may actually be slightly off-policy. For example, in GRPO, without freezing the policy, generating multiple rollout batches and doing optimizer updates sequentially makes only the first batch on-policy and all subsequent batches off-policy; this is known as **in-flight updates**.
+Although policy optimization algorithms are commonly on-policy, like GRPO, in practice, to maximize throughput, they may actually be slightly off-policy. For example, in GRPO, without freezing the policy, generating multiple rollout batches and doing optimizer updates sequentially makes only the first batch on-policy and all subsequent batches off-policy; this is known as **in-flight updates**. In-flight updates matter most when throughput is critical (e.g., large-scale RL training), when reward drift could accumulate from stale policies, when KL divergence between inference and training policies needs careful monitoring, and when long rollouts span multiple policy updates. The tradeoff is between training efficiency and policy consistency; techniques like importance sampling clipping (as in IcePop) help mitigate the off-policy bias.
 
 <img src="/public/training/in_flight_updates.png" alt="Pipeline RL with in-flight weight updates" style="width: 75%; display: block; margin: 0 auto;">
 *Figure 10*: Comparison of conventional RL and in-flight updating. From [Pipeline RL paper](https://arxiv.org/abs/2509.19128).
@@ -764,7 +767,7 @@ Inference throughput should scale linearly with the number of nodes used. Howeve
 
 There are a few common culprits for training instabilities: high learning rate, bad data, data-parameter state interactions ([spikes can come from specific combinations of data batches and model parameter states](https://arxiv.org/abs/2204.02311)), poor initialisation ([OLMo2](https://arxiv.org/abs/2501.00656) revealed that $\mathcal{N}(0, 0.02)$ can improve stability upon scaled initialisation), and precision (eww, not fp16).
 
-Besides aforementioned ideas like **z-loss** or **QKNorm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tightening gradient clipping**.
+Besides aforementioned ideas like **z-loss** or **QK-norm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tightening gradient clipping**.
 
 ### training ops takeaways
 
