@@ -1,7 +1,7 @@
 ---
 title: "frontier model training methodologies"
 date: 2026-01-31
-tokens: "~28.1k"
+tokens: "~28.9k"
 reading_time: 72
 ---
 
@@ -82,7 +82,7 @@ When ablating (for variables that change the parameter count such as changing MH
 
 ### gated attention
 
-**Gated attention** applies an elementwise gating mechanism to the scaled dot-product attention output before the output projection. A gate vector $\mathbf{g}_t = \sigma(\mathbf{W}^G \mathbf{x}_t)$ is computed from the input, where $\mathbf{x}_t$ is the input at position $t$, $\sigma$ is the sigmoid function, and $\mathbf{W}^G$ is a learned gate projection matrix. This gate is split across $h_q$ attention heads (where $h_q$ is the number of query heads), and each head's attention output is elementwise multiplied by its corresponding gate segment: $\tilde{\mathbf{o}}_{t,i} = \mathbf{o}^{\text{sdpa}}_{t,i} \odot \mathbf{g}_{t,i}$ where $\mathbf{o}^{\text{sdpa}}_{t,i}$ represents the scaled dot-product attention output for head $i$ at position $t$, $\odot$ denotes elementwise multiplication, and $\mathbf{g}_{t,i}$ is the gate segment for head $i$. The gated outputs are then concatenated and projected through the output matrix $\mathbf{W}^O$ to produce the final output.
+**Gated attention** applies an elementwise gating mechanism to the scaled dot-product attention output before the output projection. A gate vector $\mathbf{g}\_t = \sigma(\mathbf{W}^G \mathbf{x}\_t)$ is computed from the input, where $\mathbf{x}\_t$ is the input at position $t$, $\sigma$ is the sigmoid function, and $\mathbf{W}^G$ is a learned gate projection matrix. This gate is split across $h\_q$ attention heads (where $h\_q$ is the number of query heads), and each head's attention output is elementwise multiplied by its corresponding gate segment: $\tilde{\mathbf{o}}\_{t,i} = \mathbf{o}^{\text{sdpa}}\_{t,i} \odot \mathbf{g}\_{t,i}$ where $\mathbf{o}^{\text{sdpa}}\_{t,i}$ represents the scaled dot-product attention output for head $i$ at position $t$, $\odot$ denotes elementwise multiplication, and $\mathbf{g}\_{t,i}$ is the gate segment for head $i$. The gated outputs are then concatenated and projected through the output matrix $\mathbf{W}^O$ to produce the final output.
 
 Gated attention reduces attention sinks (tokens receiving disproportionately high attention), reduces large activations that destabilize training, and improves performance on evaluations and long-sequence generalization. Critically, it stabilizes training and reduces loss spikes, making it valuable for large-scale training.
 
@@ -204,7 +204,7 @@ $$
 \mathbf{o}_t = \sum_{j=1}^t \frac{\exp(\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j}{\sum_{l=1}^t \exp(\mathbf{q}_t^\top \mathbf{k}_l)} \Longrightarrow \mathbf{o}_t = \sum_{j=1}^t (\mathbf{q}_t^\top \mathbf{k}_j)\mathbf{v}_j = \left(\sum_{j=1}^t \mathbf{v}_j \mathbf{k}_j^\top\right)\mathbf{q}_t
 $$
 
-where $\mathbf{q}_t$, $\mathbf{k}_j$, and $\mathbf{v}_j$ are the query, key, and value vectors at positions $t$ and $j$, respectively, and $\mathbf{o}_t$ is the output at position $t$. By defining $S_t :=\sum_{j=1}^t \mathbf{k}_j \mathbf{v}_j^\top$, then we get a recurrent relation where $S_t$ summarizes all past $(k_j, v_j)$ pairs:
+where $\mathbf{q}\_t$, $\mathbf{k}\_j$, and $\mathbf{v}_\j$ are the query, key, and value vectors at positions $t$ and $j$, respectively, and $\mathbf{o}\_t$ is the output at position $t$. By defining $S\_t :=\sum_{j=1}^t \mathbf{k}\_j \mathbf{v}\_j^\top$, then we get a recurrent relation where $S\_t$ summarizes all past $(k\_j, v\_j)$ pairs:
 
 $$
 S_t=S_{t-1}+\mathbf{k}_t \mathbf{v}_t^\top \Longrightarrow \mathbf{o}_t = S_t \mathbf{q}_t = S_{t-1}\mathbf{q}_t+\mathbf{v}_t\left(\mathbf{k}_t^\top \mathbf{q}_t\right)
@@ -332,7 +332,7 @@ $$
 S_\text{max}^h = \frac1{\sqrt{d}} \max_{\mathbf{X} \in B} \max_{i, j} \mathbf{Q}_i^h \mathbf{K}_j^{h\top}
 $$
 
-where $d$ is the dimension of the query/key vectors, $i$ and $j$ index positions in the sequence, and the $\frac1{\sqrt{d}}$ scaling factor matches the standard attention scaling. Set $S_\text{max} = \max_h S_\text{max}^h$ (the maximum across all heads) and target threshold $\tau$ (a hyperparameter controlling when clipping activates). The idea is to rescale $\mathbf{W}_k^h$ and $\mathbf{W}_q^h$ (the key and query projection weight matrices for head $h$) whenever $S_\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S_\text{max}})$ (the global clipping factor), one approach is to clip all heads simultaneously by
+where $d$ is the dimension of the query/key vectors, $i$ and $j$ index positions in the sequence, and the $\frac1{\sqrt{d}}$ scaling factor matches the standard attention scaling. Set $S_\text{max} = \max_h S_\text{max}^h$ (the maximum across all heads) and target threshold $\tau$ (a hyperparameter controlling when clipping activates). The idea is to rescale $\mathbf{W}\_k^h$ and $\mathbf{W}\_q^h$ (the key and query projection weight matrices for head $h$) whenever $S_\\text{max}^h$ exceeds $\tau$. Also, $\gamma=\min(1, \frac{\tau}{S\_\text{max}})$ (the global clipping factor), one approach is to clip all heads simultaneously by
 
 $$
 \mathbf{W}_q^h \leftarrow \gamma^\alpha \mathbf{W}_q^h \quad \mathbf{W}_k^h \leftarrow \gamma^{1-\alpha} \mathbf{W}_k^h
