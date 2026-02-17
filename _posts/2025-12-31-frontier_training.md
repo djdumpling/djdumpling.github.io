@@ -9,6 +9,21 @@ How do labs train a frontier, multi-billion parameter model? We look towards Hug
 
 These notes are largely structured based on Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, Hermes 4, DeepSeek, and Kimi. While this blog explores some infrastructure-related ideas like in-flight weight updates and multi-client orchestrators, there are many other ideas mentioned throughout those posts/blogs like expert parallelism and quantization. Hugging Face writes more about gpt-oss-120b's infrastructure [here](https://huggingface.co/blog/faster-transformers).
 
+# table of contents
+
+- [tl;dr](#tldr) — Key takeaways, playbook, how to use this post, decision map
+- [Architecture and set-up](#architecture-and-set-up) — Attention, MoE, positional encodings, document masking, hybrid models
+- [Stability](#stability) — z-loss, logit softcapping, QK-norm, RMSNorm, initialization
+- [Tokenizer](#tokenizer) — Vocab design, BPE, domain considerations
+- [Optimizers and training hyperparameters](#optimizers-and-training-hyperparameters) — AdamW, Muon, learning rates, batch size, scaling laws
+- [Data curation and pre-training](#data-curation-and-pre-training) — Multi-stage training, data mixture, ablation
+- [Mid-training](#mid-training) — Domain gaps, long-context stages, distilled reasoning
+- [Post-training](#post-training) — Evals, SFT, preference optimization, RL, chat templates
+- [Behaviors and safety](#behaviors-and-safety) — Safety testing, latent capabilities
+- [The training marathon](#the-training-marathon) — Throughput, dataloader, tensor parallelism, common failures
+- [Glossary](#glossary) — Nonstandard terms
+- [Appendix: math details](#appendix-math-details) — Derivations
+
 # tl;dr
 
 - Frontier training is a systems problem: data mixture, architecture, and stability choices dominate most algorithmic tweaks.
@@ -32,7 +47,7 @@ These notes are largely structured based on Hugging Face's [SmolLM3 report](http
 4. Build the data pipeline with deduplication, filtering, and contamination checks; measure data quality explicitly.
 5. Run small ablations for attention, positional encoding, optimizer, and learning rate schedule; change one variable at a time.
 6. Plan a multi-stage data mixture; delay the best data and reasoning-heavy data toward the end.
-7. Add stability guardrails: z-loss/QK-norm decisions, gradient clipping, precision policy, loss spike alerts.
+7. Add stability guardrails: logit softcapping (preferred, per Gemma) or z-loss/QK-norm, gradient clipping, precision policy, loss spike alerts.
 8. Validate throughput on long runs and confirm dataloader behavior (packing, shuffling, random access).
 9. Run the main training with interval evals and consistent seeds, especially for tensor parallelism.
 10. Mid-train for domain gaps if SFT reveals them; extend context length gradually (4k → 32k → 64k → 128k).
@@ -230,7 +245,19 @@ Training stability is crucial for successful large-scale model training. Several
 
 $z$-loss is a regularization term added to the standard cross entropy loss that keeps logits from drifting to large magnitudes. The softmax denominator is $Z = \sum_{i=1}^V e^{z_i}$, and by adding $\mathcal{L} = \lambda \cdot \log^2(Z)$ to the loss, we penalize based on $\log(Z)$ which represents the overall logit scale. 
 
-On their 1B model, Hugging Face found that adding $Z$-loss didn't impact training loss or downstream performance, so they chose not to include it due to training overhead.
+On their 1B model, Hugging Face found that adding $Z$-loss didn't impact training loss or downstream performance, so they chose not to include it due to training overhead. For logit stabilization, **logit softcapping** (see below) is generally preferred in modern recipes, following the [Gemma 2](https://storage.googleapis.com/deepmind-media/gemma/gemma-2-report.pdf) and [Gemma 3](https://arxiv.org/abs/2503.19786) models.
+
+### logit softcapping
+
+**Logit softcapping** prevents logits from growing excessively large by mapping them into a bounded range via a smooth, differentiable transformation. Unlike hard clipping (which has zero gradient at the boundaries and can cause training instability), softcapping uses $\tanh$ to compress values smoothly. The [Gemma 2 report](https://arxiv.org/abs/2408.00118) introduces the formulation used in production models: cap logits such that values stay within $(-\texttt{soft\_cap}, +\texttt{soft\_cap})$ using
+
+$$
+\text{logits} \leftarrow \texttt{soft\_cap} \cdot \tanh\left(\frac{\text{logits}}{\texttt{soft\_cap}}\right)
+$$
+
+where $\texttt{soft\_cap}$ is the threshold hyperparameter controlling the output range. The division normalizes inputs before $\tanh$ and the multiplication by $\texttt{soft\_cap}$ rescales to the desired interval. Unlike $z$-loss (which adds a regularization term to the loss), softcapping operates directly on activations in the forward pass
+
+[Gemma 2](https://arxiv.org/abs/2408.00118) applies softcapping to both attention logits (pre-softmax) and the final language modeling head. They set $\texttt{soft\_cap}=50.0$ for attention layers and $\texttt{soft\_cap}=30.0$ for the final layer. The technique traces back to [Bello et al., 2016](https://arxiv.org/abs/1609.08144) in the context of neural machine translation. However, one caveat is that logit softcapping is incompatible with Flash Attention / SDPA during training because those fused kernels assume standard attention. The [Hugging Face Gemma 2 blog](https://huggingface.co/blog/gemma2) notes that for stable fine-tuning, you must use `attn_implementation="eager"`; inference can still use SDPA with minimal quality difference. [This writeup](https://danieldk.eu/Machine-Learning/Building-Blocks/Logit-Softcapping) gives a concise technical overview.
 
 ### removing weight decay from embeddings
 
@@ -264,6 +291,7 @@ Arcee also applies RMSNorm before the language modeling head stabilizes the fina
 ### stability takeaways
 
 - Stabilization is mostly about sane defaults, not exotic tricks.
+- **Logit softcapping** (Gemma-style) is the preferred method for attention/LM-head logit stabilization; $z$-loss and QK-norm are alternatives.
 - QK-norm can hurt long-context tasks; don’t assume it’s “always good.”
 - Initialization and normalization details matter more as depth grows.
 - Track loss spikes early; many “mystery failures” are configuration or data issues.
@@ -767,7 +795,7 @@ Inference throughput should scale linearly with the number of nodes used. Howeve
 
 There are a few common culprits for training instabilities: high learning rate, bad data, data-parameter state interactions ([spikes can come from specific combinations of data batches and model parameter states](https://arxiv.org/abs/2204.02311)), poor initialisation ([OLMo2](https://arxiv.org/abs/2501.00656) revealed that $\mathcal{N}(0, 0.02)$ can improve stability upon scaled initialisation), and precision (eww, not fp16).
 
-Besides aforementioned ideas like **z-loss** or **QK-norm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tightening gradient clipping**.
+Besides aforementioned ideas like **logit softcapping**, **z-loss**, or **QK-norm**, **data filtering** (OLMo2 removed documents with repeated n-grams, specifically those with 32+ repetitions of 1-13 token spans) significantly reduces spike frequency. If spikes still occur, common methods include retraining around the spike by **skipping problematic batches** or **tightening gradient clipping**.
 
 ### training ops takeaways
 
