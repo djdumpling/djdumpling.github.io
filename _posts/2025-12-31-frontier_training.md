@@ -1,7 +1,7 @@
 ---
 title: "frontier model training methodologies"
 date: 2026-01-31
-tokens: "~28.9k"
+tokens: "~30.2k"
 reading_time: 72
 ---
 
@@ -11,18 +11,73 @@ These notes are largely structured based on Hugging Face's [SmolLM3 report](http
 
 # table of contents
 
-- [tl;dr](#tldr) — Key takeaways, playbook, how to use this post, decision map
-- [Architecture and set-up](#architecture-and-set-up) — Attention, MoE, positional encodings, document masking, hybrid models
-- [Stability](#stability) — z-loss, logit softcapping, QK-norm, RMSNorm, initialization
-- [Tokenizer](#tokenizer) — Vocab design, BPE, domain considerations
-- [Optimizers and training hyperparameters](#optimizers-and-training-hyperparameters) — AdamW, Muon, learning rates, batch size, scaling laws
-- [Data curation and pre-training](#data-curation-and-pre-training) — Multi-stage training, data mixture, ablation
-- [Mid-training](#mid-training) — Domain gaps, long-context stages, distilled reasoning
-- [Post-training](#post-training) — Evals, SFT, preference optimization, RL, chat templates
-- [Behaviors and safety](#behaviors-and-safety) — Safety testing, latent capabilities
-- [The training marathon](#the-training-marathon) — Throughput, dataloader, tensor parallelism, common failures
-- [Glossary](#glossary) — Nonstandard terms
-- [Appendix: math details](#appendix-math-details) — Derivations
+- [tl;dr](#tldr)
+  - [a minimal training playbook](#a-minimal-training-playbook)
+  - [general practices](#general-practices)
+- [architecture and set-up](#architecture-and-set-up)
+  - [architecture decision heuristics](#architecture-decision-heuristics)
+  - [attention](#attention)
+  - [gated attention](#gated-attention)
+  - [document masking](#document-masking)
+  - [embedding sharing](#embedding-sharing)
+  - [positional encodings](#positional-encodings)
+  - [attention for long contexts](#attention-for-long-contexts)
+  - [MoE](#moe)
+  - [hybrid models](#hybrid-models)
+  - [architecture takeaways](#architecture-takeaways)
+- [stability](#stability)
+  - [$z$-loss](#z-loss)
+  - [logit softcapping](#logit-softcapping)
+  - [removing weight decay from embeddings](#removing-weight-decay-from-embeddings)
+  - [QK-norm](#qk-norm)
+  - [RMSNorm](#rmsnorm)
+  - [other design considerations](#other-design-considerations)
+  - [stability takeaways](#stability-takeaways)
+- [tokenizer](#tokenizer)
+- [optimizers and training hyperparameters](#optimizers-and-training-hyperparameters)
+  - [adamW](#adamw)
+  - [muon](#muon)
+  - [learning rates](#learning-rates)
+  - [batch size](#batch-size)
+  - [scaling laws](#scaling-laws)
+- [data curation and pre-training](#data-curation-and-pre-training)
+  - [multi-stage training](#multi-stage-training)
+  - [ablation](#ablation)
+  - [token utility](#token-utility)
+  - [pre-training data](#pre-training-data)
+    - [SmolLM3](#smollm3)
+    - [hermes 4](#hermes-4)
+  - [data takeaways](#data-takeaways)
+- [mid-training](#mid-training)
+- [post-training](#post-training)
+  - [evals](#evals)
+  - [post-training data](#post-training-data)
+    - [intellect 3](#intellect-3)
+    - [hermes 4](#hermes-4)
+    - [kimi k2](#kimi-k2)
+  - [chat template](#chat-template)
+  - [sft](#sft)
+  - [capabilities](#capabilities)
+  - [sequence packing](#sequence-packing)
+  - [learning rate and epochs](#learning-rate-and-epochs)
+  - [preference optimization (PO)](#preference-optimization-po)
+    - [algorithms](#algorithms)
+  - [RL](#rl)
+    - [RLVR and rubrics](#rlvr-and-rubrics)
+    - [online data filtering](#online-data-filtering)
+    - [alternatives to RL](#alternatives-to-rl)
+    - [limitations](#limitations)
+  - [post-training takeaways](#post-training-takeaways)
+- [behaviors and safety](#behaviors-and-safety)
+  - [safety testing and mitigation](#safety-testing-and-mitigation)
+  - [behaviors and latent capabilities](#behaviors-and-latent-capabilities)
+- [the training marathon](#the-training-marathon)
+  - [vanishing throughput](#vanishing-throughput)
+  - [noisy loss](#noisy-loss)
+  - [tensor parallelism](#tensor-parallelism)
+  - [multi-client orchestrator](#multi-client-orchestrator)
+  - [the usual suspects](#the-usual-suspects)
+  - [training ops takeaways](#training-ops-takeaways)
 
 # tl;dr
 
