@@ -1,11 +1,12 @@
 ---
 title: "frontier model training methodologies"
 date: 2026-01-31
+image: /public/training/thumbnail.png
 tokens: "~30.2k"
-reading_time: 72
+reading_time: 150
 ---
 
-How do labs train a frontier, multi-billion parameter model? We look towards Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925), Moonshot's [Kimi K2](https://arxiv.org/pdf/2507.20534), DeepSeek's [DeepSeek-R1](https://arxiv.org/pdf/2501.12948), and Arcee's [Trinity series](https://github.com/arcee-ai/trinity-large-tech-report/blob/main/Arcee%20Trinity%20Large.pdf). This blog is an attempt at distilling the techniques, motivations, and considerations used to train their models with an emphasis on training methodology over infrastructure.
+How do labs train a frontier, multi-billion parameter model? We look towards seven open-weight frontier models: Hugging Face's [SmolLM3](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook), Prime Intellect's [Intellect 3](https://arxiv.org/abs/2512.16144), Nous Research's [Hermes 4](https://arxiv.org/abs/2508.18255), OpenAI's [gpt-oss-120b](https://arxiv.org/pdf/2508.10925), Moonshot's [Kimi K2](https://arxiv.org/pdf/2507.20534), DeepSeek's [DeepSeek-R1](https://arxiv.org/pdf/2501.12948), and Arcee's [Trinity series](https://github.com/arcee-ai/trinity-large-tech-report/blob/main/Arcee%20Trinity%20Large.pdf). This blog is an attempt at distilling the techniques, motivations, and considerations used to train their models with an emphasis on training methodology over infrastructure.
 
 These notes are largely structured based on Hugging Face's [SmolLM3 report](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook) due to its extensiveness, and it is currently supplemented with notes from other reports including Intellect-3, gpt-oss-120b, Hermes 4, DeepSeek, and Kimi. While this blog explores some infrastructure-related ideas like in-flight weight updates and multi-client orchestrators, there are many other ideas mentioned throughout those posts/blogs like expert parallelism and quantization. Hugging Face writes more about gpt-oss-120b's infrastructure [here](https://huggingface.co/blog/faster-transformers).
 
@@ -28,7 +29,7 @@ These notes are largely structured based on Hugging Face's [SmolLM3 report](http
 - [stability](#stability)
   - [$z$-loss](#z-loss)
   - [logit softcapping](#logit-softcapping)
-  - [removing weight decay from embeddings](#removing-weight-decay-from-embeddings)
+  - [weight decay and embeddings](#removing-weight-decay-from-embeddings)
   - [QK-norm](#qk-norm)
   - [RMSNorm](#rmsnorm)
   - [other design considerations](#other-design-considerations)
@@ -314,7 +315,7 @@ where $\texttt{soft\_cap}$ is the threshold hyperparameter controlling the outpu
 
 [Gemma 2](https://arxiv.org/abs/2408.00118) applies softcapping to both attention logits (pre-softmax) and the final language modeling head. They set $\texttt{soft\_cap}=50.0$ for attention layers and $\texttt{soft\_cap}=30.0$ for the final layer. The technique traces back to [Bello et al., 2016](https://arxiv.org/abs/1609.08144) in the context of neural machine translation. However, one caveat is that logit softcapping is incompatible with Flash Attention / SDPA during training because those fused kernels assume standard attention. The [Hugging Face Gemma 2 blog](https://huggingface.co/blog/gemma2) notes that for stable fine-tuning, you must use `attn_implementation="eager"`; inference can still use SDPA with minimal quality difference. [This writeup](https://danieldk.eu/Machine-Learning/Building-Blocks/Logit-Softcapping) gives a concise technical overview.
 
-### removing weight decay from embeddings
+### weight decay and embeddings
 
 Despite being a regularization technique, removing weight decay from embeddings can improve training stability. Weight decay causes embedding norm to decrease, but this can lead to larger gradients in earlier layers since the LayerNorm Jacobian has a $\frac1{\sigma}$ term (coming from normalization) which is inversely proportional to the input norm $\sigma$.
 
