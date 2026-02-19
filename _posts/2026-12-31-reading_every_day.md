@@ -2,6 +2,7 @@
 title: "paper reading catalog"
 date: 2026-12-31
 ongoing: true
+archive: false
 tokens: "~9.9k"
 reading_time: 15
 ---
