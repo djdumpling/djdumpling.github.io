@@ -64,6 +64,15 @@ hr {
   flex: 1;
 }
 
+/* Research and Posts sections: full width, aligned left (not constrained by profile layout) */
+.home-sections {
+  clear: both;
+  display: block;
+  width: 100%;
+  margin-left: 0;
+  grid-column: 1 / -1; /* span full width if parent uses grid */
+}
+
 @media screen and (max-width: 600px) {
   .profile-container {
     flex-direction: column;

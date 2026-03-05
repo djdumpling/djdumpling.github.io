@@ -5,6 +5,7 @@ layout: default
 <div class="home">
   {{ content }}
 
+  <div class="home-sections">
   <h2 class="post-list-heading">Research</h2>
   <div class="post-list">
     <div class="post-item">
@@ -18,7 +19,7 @@ layout: default
 
   {%- assign regular_posts = site.posts | where_exp: "post", "post.ongoing != true" -%}
   {%- if regular_posts.size > 0 -%}
-    <h2 class="post-list-heading">Posts</h2>
+  <h2 class="post-list-heading">Posts</h2>
     <div class="post-list">
       {%- for post in regular_posts -%}
       <div class="post-item">
@@ -38,4 +39,5 @@ layout: default
       {%- endfor -%}
     </div>
   {%- endif -%}
+  </div>
 </div> 
