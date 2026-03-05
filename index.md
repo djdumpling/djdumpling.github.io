@@ -14,9 +14,15 @@ layout: home
     <p>
       In my free time, I <a href="https://www.instagram.com/alex_wa_art/" target="_blank">draw</a>, run <a href="https://www.theveritassearch.com/" target="_blank">The Veritas Search</a>, play board games like Catan, and enjoy photography.
     </p>
-    <h3>Research</h3>
-    <ul>
-      <li>Our work "<a href="https://arxiv.org/abs/2603.03464" target="_blank">Graph Hopfield Networks: Energy-Based Node Classification with Associative Memory</a>" was recently accepted into ICLR NFAM Workshop 2026</li>
-    </ul>
+    <h2 class="post-list-heading">Research</h2>
+    <div class="post-list">
+      <div class="post-item">
+        <div class="post-date">March 2026</div>
+        <h3 class="post-title">
+          <a class="post-link" href="https://arxiv.org/abs/2603.03464" target="_blank">Graph Hopfield Networks: Energy-Based Node Classification with Associative Memory</a>
+        </h3>
+        <div class="post-summary">Accepted into ICLR NFAM Workshop 2026.</div>
+      </div>
+    </div>
   </div>
 </div>
