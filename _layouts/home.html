@@ -6,10 +6,6 @@ layout: default
   {{ content }}
 
   <div class="home-sections">
-  <ul>
-    <li>March 2026 — <a href="https://arxiv.org/abs/2603.03464" target="_blank">Our work</a> was accepted into ICLR NFAM Workshop 2026.</li>
-  </ul>
-
   {%- assign regular_posts = site.posts | where_exp: "post", "post.ongoing != true" -%}
   {%- if regular_posts.size > 0 -%}
   <h2 class="post-list-heading">Posts</h2>
