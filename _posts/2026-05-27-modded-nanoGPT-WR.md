@@ -111,11 +111,11 @@ if attn_args.xsa_alpha is not None and not self.paired:
 
 At n=10, this gave us a small but real loss improvement. Not enough headroom yet to fund a 30-step cut, but the *direction* of the result was unambiguous, and that was the first time we'd had a clean loss-positive result in the whole project.
 
-### fixing the load-bearing gate
+### fixing the gate
 
-We logged the final `tanh(α_{ℓ,h})` per (layer, head) at end-of-training. A representative run:
+We logged the final $\tanh(\alpha_{\ell, h}$ per (layer, head) at end-of-training. A representative run:
 
-| Layer | `tanh(α)` per head h ∈ {0, …, 5} | Note |
+| Layer | $\tanh(\alpha)$ per head h ∈ {0, …, 5} | Note |
 |---|---|---|
 | 7 | +0.876, +0.769, +0.837, +0.918, +0.961, +0.795 | saturated near +1 |
 | 8 | +0.469, +0.084, +0.171, +0.562, +0.408, +0.379 | mid-range, head-heterogeneous |
