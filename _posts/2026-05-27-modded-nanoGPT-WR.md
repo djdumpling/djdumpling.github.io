@@ -5,9 +5,12 @@ tokens: "~4.5k"
 reading_time: 15
 ---
 
-[Modded-nanoGPT speedrunning](https://github.com/KellerJordan/modded-nanogpt) is a popular benchmark that asks how fast 8xH100s can drive a 124M-parameter model to 3.28 validation loss on FineWeb. After dozens of failed experiments (mainly algorithmic including optimizers, activations, schedules), we propose a learnable per-(layer, head) $\tanh(\alpha)$ gate on [Exclusive Self-Attention](https://arxiv.org/abs/2603.09078), broadened across all non-paired attention layers, which funds a 30-step schedule cut and brings the record down to 81.2 s (-0.6 s). Our submission PR is [here](https://github.com/KellerJordan/modded-nanogpt/pull/264).
+[Modded-nanoGPT speedrunning](https://github.com/KellerJordan/modded-nanogpt) is a popular benchmark that asks how fast 8xH100s can drive a 124M-parameter model to 3.28 validation loss on FineWeb. After iterating on dozens of failed experiments (mainly algorithmic including optimizers, activations, schedules), we propose a learnable per-(layer, head) $\tanh(\alpha)$ gate on [Exclusive Self-Attention](https://arxiv.org/abs/2603.09078), broadened across all non-paired attention layers, which funds a 30-step schedule cut and brings the record down to 81.2 s (-0.6 s). Our submission PR is [here](https://github.com/KellerJordan/modded-nanogpt/pull/264).
 
 This blog is taken from work done jointly with two classmates, [Andrew Xu](https://www.linkedin.com/in/sandrewxu/) and [Ben Xu](https://www.linkedin.com/in/benxuyale/), as a part of Yale's *Building AI Infrastructure* class taught by [Richard Yang](http://cs-www.cs.yale.edu/homes/yry/). Thank you additionally to [Richard Yang](http://cs-www.cs.yale.edu/homes/yry/) and [Ryan Yang-Liu](https://x.com/ryanyang0) for provisioning GPUs and providing guidance throughput as well as [Keller Jordan](https://x.com/kellerjordan0) for validating and stewarding the speedrun on [Prime Intellect](https://app.primeintellect.ai/dashboard/home).
+
+![WR progression](/public/modded_nanogpt/wr_history.png)
+*Figure 1: World-record progression of the modded-nanoGPT speedrun, May 2024 → May 2026 (log y-axis).*
 
 ## tl;dr
 
