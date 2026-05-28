@@ -115,13 +115,13 @@ At n=10, this gave us a small but real loss improvement. Not enough headroom yet
 
 We logged the final $\tanh(\alpha_{\ell, h}$ per (layer, head) at end-of-training. A representative run:
 
-| Layer | $\tanh(\alpha)$ per head h ∈ {0, …, 5} | Note |
+| Layer | $\tanh(\alpha)$ per head $h \in \{0, \cdots, 5\}$ | Note |
 |---|---|---|
 | 7 | +0.876, +0.769, +0.837, +0.918, +0.961, +0.795 | saturated near +1 |
 | 8 | +0.469, +0.084, +0.171, +0.562, +0.408, +0.379 | mid-range, head-heterogeneous |
 | 10 | +0.384, +0.443, +0.635, +0.492, +0.396, +0.622 | mid-range |
 
-Max $|\alpha|$ was 0.961 and mean 0.567. all 18 (layer, head) pairs were "active" ($|\tanh(\alpha)| > 0.05$), and it wasn't pushing it back to 1.0 everywhere. It was pushing each head to a different value, with layer 7 saturating, layer 8 spreading across the range, and layer 10 sitting comfortably in the mid-region.
+Max $\alpha$ was 0.961 and mean 0.567. all 18 (layer, head) pairs were "active" ($\tanh(\alpha) > 0.05$), and it wasn't pushing it back to 1.0 everywhere. It was pushing each head to a different value, with layer 7 saturating, layer 8 spreading across the range, and layer 10 sitting comfortably in the mid-region.
 
 This was the strongest single signal we had in the whole project that XSA was actually doing something. The most comparable experiment was `exp/qk-gain`, where we added a learnable per-(layer, head) attention temperature but the optimizer converged everything to ~1.0 within 200 steps. Here, however, every head wanted a different correction strength which the gate permitted.
 
