@@ -29,7 +29,7 @@ These notes are largely structured based on Hugging Face's [SmolLM3 report](http
 - [stability](#stability)
   - [$z$-loss](#z-loss)
   - [logit softcapping](#logit-softcapping)
-  - [weight decay and embeddings](#removing-weight-decay-from-embeddings)
+  - [weight decay and embeddings](#weight-decay-and-embeddings)
   - [QK-norm](#qk-norm)
   - [RMSNorm](#rmsnorm)
   - [other design considerations](#other-design-considerations)

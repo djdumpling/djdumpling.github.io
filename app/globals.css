@@ -1,0 +1,89 @@
+@import "../styles/main.css";
+@import "../styles/override.css";
+@import "highlight.js/styles/github.css";
+
+#share-buttons {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+#share-buttons::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+
+#share-buttons > div {
+  position: relative;
+  width: 32px;
+  height: 36px;
+  float: left;
+  text-align: center;
+}
+
+#share-buttons > div > svg {
+  height: 16px;
+  margin-top: 10px;
+  fill: #d5d5d5;
+}
+
+#share-buttons > div:hover {
+  cursor: pointer;
+}
+
+#share-buttons > .facebook:hover > svg {
+  fill: #3b5998;
+}
+
+#share-buttons > .twitter:hover > svg {
+  fill: #55acee;
+}
+
+#share-buttons > .linkedin:hover > svg {
+  fill: #0077b5;
+}
+
+#share-buttons > .gplus:hover > svg {
+  fill: #dd4b39;
+}
+
+#share-buttons > .mail:hover > svg {
+  fill: #7d7d7d;
+}
+
+#share-buttons > .facebook > svg {
+  height: 18px;
+  margin-top: 9px;
+}
+
+#share-buttons > .twitter > svg {
+  height: 20px;
+  margin-top: 8px;
+}
+
+#share-buttons > .linkedin > svg {
+  height: 19px;
+  margin-top: 7px;
+}
+
+#share-buttons > .gplus > svg {
+  position: relative;
+  left: 1px;
+  height: 17px;
+  margin-top: 9px;
+}
+
+#share-buttons > .mail > svg {
+  height: 14px;
+  margin-top: 11px;
+}
+
+/* Match Kramdown's inline-code treatment for CommonMark output. */
+.post-content :not(pre) > code,
+.post-summary :not(pre) > code {
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  background-color: #f8f9fa !important;
+  color: #e83e8c !important;
+  font-size: 0.8em !important;
+}

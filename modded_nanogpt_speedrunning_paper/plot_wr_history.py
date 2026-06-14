@@ -4,7 +4,7 @@ Reconstructs the modded-nanoGPT WR history plot.
 Data sourced from https://github.com/KellerJordan/modded-nanogpt/blob/master/README.md
 as of WR #82 (2026-04-29). WR #82 time uses our measured 81.2 s.
 
-Output: ../public/modded_nanogpt/wr_history.png
+Output: ../public/public/modded_nanogpt/wr_history.png
 """
 
 from datetime import datetime
@@ -152,7 +152,13 @@ def main() -> None:
 
     plt.tight_layout()
 
-    out_path = Path(__file__).resolve().parent.parent / "public" / "modded_nanogpt" / "wr_history.png"
+    out_path = (
+        Path(__file__).resolve().parent.parent
+        / "public"
+        / "public"
+        / "modded_nanogpt"
+        / "wr_history.png"
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(out_path, dpi=160, bbox_inches="tight")
     print(f"Saved to {out_path}")

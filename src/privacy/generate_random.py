@@ -135,5 +135,5 @@ ax.set_xlim(left=-7, right=x_max)
 ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
 
 plt.tight_layout()
-plt.savefig('public/sea_privacy/privacy_utility_random.png', dpi=300, bbox_inches='tight')
-print("Graph saved to public/sea_privacy/privacy_utility_random.png")
+plt.savefig('public/public/sea_privacy/privacy_utility_random.png', dpi=300, bbox_inches='tight')
+print("Graph saved to public/public/sea_privacy/privacy_utility_random.png")

@@ -271,5 +271,5 @@ from matplotlib.ticker import FuncFormatter
 cbar.ax.xaxis.set_major_formatter(FuncFormatter(log_to_pct_formatter))
 cbar.set_label('% Perplexity Increase', fontsize=12, fontweight='bold')
 
-plt.savefig('public/sea_privacy/threshold_comparison.png', dpi=300, bbox_inches='tight')
-print("Graph saved to public/sea_privacy/threshold_comparison.png")
+plt.savefig('public/public/sea_privacy/threshold_comparison.png', dpi=300, bbox_inches='tight')
+print("Graph saved to public/public/sea_privacy/threshold_comparison.png")

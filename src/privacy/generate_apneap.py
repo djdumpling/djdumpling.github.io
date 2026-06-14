@@ -164,7 +164,7 @@ ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
 plt.tight_layout()
 
 # Save the figure
-output_path = 'public/sea_privacy/privacy_utility_apneap.png'
+output_path = 'public/public/sea_privacy/privacy_utility_apneap.png'
 plt.savefig(output_path, dpi=300, bbox_inches='tight')
 print(f"Graph saved to {output_path}")
 
