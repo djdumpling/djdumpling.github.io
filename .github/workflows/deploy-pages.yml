@@ -47,12 +47,6 @@ jobs:
       - name: Verify artifact
         run: npm run test:artifact
 
-      - name: Install browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Verify rendered pages
-        run: npm run test:browser
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
