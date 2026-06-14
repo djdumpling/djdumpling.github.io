@@ -1,1 +1,8 @@
-﻿_site
+.DS_Store
+.next/
+node_modules/
+out/
+playwright-report/
+test-results/
+*.tsbuildinfo
+_site/
