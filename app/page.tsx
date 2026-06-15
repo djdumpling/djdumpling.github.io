@@ -70,9 +70,7 @@ export default async function HomePage() {
             <a href="https://www.judgmentlabs.ai/" target="_blank">
               Judgment Labs
             </a>
-            ), geometric algebra (APOLLO Labs), algebraic topology (SUMaC
-            &apos;23), abstract algebra (SUMaC &apos;22), and biostatistics
-            (Emory). Check out our ICLR NFAM Workshop 2026 submission{" "}
+            ). Check out our ICLR NFAM Workshop 2026 submission{" "}
             <a href="https://arxiv.org/abs/2603.03464" target="_blank">
               here
             </a>
