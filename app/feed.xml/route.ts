@@ -1,11 +1,11 @@
-import { getPostsNewestFirst } from "@/lib/posts";
+import { getListedPostsNewestFirst } from "@/lib/posts";
 import { absoluteUrl, SITE } from "@/lib/site";
 import { cdata, escapeXml } from "@/lib/xml";
 
 export const dynamic = "force-static";
 
 export async function GET() {
-  const posts = await getPostsNewestFirst();
+  const posts = await getListedPostsNewestFirst();
   const updated = posts[0]?.publishedIso ?? new Date().toISOString();
   const entries = posts
     .map(

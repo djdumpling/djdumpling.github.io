@@ -89,4 +89,15 @@ print("hello")
     );
     expect(html).toContain('<code class="language-python">');
   });
+
+  it("rewrites source-relative public paths for the exported site", async () => {
+    const html = await renderMarkdown(`
+![Chart](../public/public/megagem/chart.svg)
+
+[Provenance](../public/public/megagem/PROVENANCE.md)
+`);
+
+    expect(html).toContain('src="/public/megagem/chart.svg"');
+    expect(html).toContain('href="/public/megagem/PROVENANCE.md"');
+  });
 });

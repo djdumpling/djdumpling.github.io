@@ -1,0 +1,14 @@
+model,elo,ci_low,ci_high,tier
+MegaGem Distilled 4B,1275,1224,1329,trained
+Gemini 3.1 Pro,1218,1166,1277,frontier
+Gemini 3 Flash,1216,1165,1273,frontier
+MegaGem SFT 4B,1158,1107,1214,trained
+Claude Sonnet 4.6,1057,1013,1104,frontier
+Claude Opus 4.8,1054,1004,1105,frontier
+GPT-5.5,1047,1004,1093,frontier
+GPT-4.1,945,885,996,frontier
+Gemini 2.5 Flash,922,870,967,frontier
+Claude Haiku 4.5,858,800,911,frontier
+Grok-4.20,852,792,907,frontier
+Mistral Large 2512,848,792,905,frontier
+Qwen3-4B Instruct,551,469,605,base

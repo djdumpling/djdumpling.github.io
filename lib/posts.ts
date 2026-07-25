@@ -23,6 +23,7 @@ const frontmatterSchema = z.object({
   reading_time: z.number().int().positive().optional(),
   ongoing: z.boolean().optional(),
   archive: z.boolean().optional(),
+  unlisted: z.boolean().optional(),
 });
 
 export type PostFrontmatter = {
@@ -35,6 +36,7 @@ export type PostFrontmatter = {
   readingTime?: number;
   ongoing: boolean;
   archive: boolean;
+  unlisted: boolean;
 };
 
 export type Post = PostFrontmatter & {
@@ -118,6 +120,7 @@ export async function parsePostFile(
     readingTime: frontmatter.reading_time,
     ongoing: frontmatter.ongoing ?? false,
     archive: frontmatter.archive ?? true,
+    unlisted: frontmatter.unlisted ?? false,
     html,
     excerptHtml,
     excerptText: htmlToText(excerptHtml),
@@ -140,6 +143,20 @@ export async function getPostsChronological(): Promise<Post[]> {
 
 export async function getPostsNewestFirst(): Promise<Post[]> {
   return [...(await loadPosts())].reverse();
+}
+
+export function isPostListed(
+  post: Pick<PostFrontmatter, "unlisted">,
+): boolean {
+  return !post.unlisted;
+}
+
+export async function getListedPostsChronological(): Promise<Post[]> {
+  return (await loadPosts()).filter(isPostListed);
+}
+
+export async function getListedPostsNewestFirst(): Promise<Post[]> {
+  return [...(await getListedPostsChronological())].reverse();
 }
 
 export async function getPostBySegments(

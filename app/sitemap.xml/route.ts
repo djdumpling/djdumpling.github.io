@@ -1,11 +1,11 @@
-import { getPostsChronological } from "@/lib/posts";
+import { getListedPostsChronological } from "@/lib/posts";
 import { absoluteUrl } from "@/lib/site";
 import { escapeXml } from "@/lib/xml";
 
 export const dynamic = "force-static";
 
 export async function GET() {
-  const posts = await getPostsChronological();
+  const posts = await getListedPostsChronological();
   const postEntries = posts
     .map(
       (post) => `<url>

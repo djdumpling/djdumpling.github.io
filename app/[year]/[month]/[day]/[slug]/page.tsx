@@ -5,6 +5,7 @@ import { PostNavigation } from "@/components/PostNavigation";
 import { ShareLinks } from "@/components/ShareLinks";
 import {
   formatPostDate,
+  getListedPostsChronological,
   getPostBySegments,
   getPostsChronological,
 } from "@/lib/posts";
@@ -45,6 +46,12 @@ export async function generateMetadata({
     description: post.excerptText,
     authors: [{ name: post.author }],
     alternates: { canonical: post.legacyUrl },
+    robots: post.unlisted
+      ? {
+          index: false,
+          follow: false,
+        }
+      : undefined,
     openGraph: {
       title: post.title,
       description: post.excerptText,
@@ -73,7 +80,7 @@ export default async function PostPage({ params }: PostPageProps) {
     notFound();
   }
 
-  const posts = await getPostsChronological();
+  const posts = await getListedPostsChronological();
   const postIndex = posts.findIndex(
     (candidate) => candidate.legacyUrl === post.legacyUrl,
   );

@@ -1,0 +1,8 @@
+run,label,checkpoint,comparator,mean_own_score_delta,ci_low,ci_high,n_seed_groups,samples_per_seed,heuristic_gate_pass,health_pass
+repl_03,repl03,200,heuristic,4.64375,2.6791666666666667,6.56875,60,8,1,1
+repl_04,repl04,200,heuristic,4.364583333333333,2.89375,5.879166666666666,60,8,1,1
+repl_07,long DAPO,400,heuristic,16.483333333333334,14.2625,18.925,60,8,1,0
+rotate_m3_confirm,seat rotate,150,heuristic,4.041666666666667,-3.875,11.875,24,1,0,1
+apimix_x2_01,API mix,200,heuristic,-2.066666666666667,-3.8854166666666665,-0.3104166666666667,60,8,0,1
+flash_repl_05,Flash mix,200,heuristic,-1.1645833333333333,-3.216666666666667,0.89375,60,8,0,1
+psro_hetero_ev,heterogeneous,100,heuristic,0.6520833333333333,-1.1354166666666667,2.433333333333333,60,8,0,1

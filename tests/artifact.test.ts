@@ -16,6 +16,7 @@ const expectedPages = [
   "2025/12/14/SEA-privacy.html",
   "2026/01/31/frontier_training.html",
   "2026/05/27/modded-nanoGPT-WR.html",
+  "2026/07/25/my-draft.html",
 ];
 
 // Posts moved to archived_posts/ must never be exported.
@@ -134,6 +135,8 @@ describe("static export", () => {
     expect(feed.match(/<entry>/g)).toHaveLength(5);
     expect(feed).not.toContain("reading_every_day");
     expect(sitemap.match(/<url>/g)).toHaveLength(7);
+    expect(feed).not.toContain("my-draft");
+    expect(sitemap).not.toContain("my-draft");
     expect(sitemap).not.toContain("reading_every_day");
     expect(sitemap).not.toContain("localhost");
   });

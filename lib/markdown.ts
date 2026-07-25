@@ -110,6 +110,21 @@ function remarkKramdownCodeClasses() {
   };
 }
 
+function remarkRewritePublicPaths() {
+  return (tree: unknown) => {
+    const mdast = tree as Parameters<typeof visit>[0];
+
+    for (const nodeType of ["image", "link"] as const) {
+      visit(mdast, nodeType, (node) => {
+        const urlNode = node as { url: string };
+        if (urlNode.url.startsWith("../public/")) {
+          urlNode.url = urlNode.url.slice("../public".length);
+        }
+      });
+    }
+  };
+}
+
 export async function renderMarkdown(markdown: string): Promise<string> {
   const protectedMath = protectRawMath(markdown);
 
@@ -120,6 +135,7 @@ export async function renderMarkdown(markdown: string): Promise<string> {
     .use(remarkSmartypants)
     .use(remarkPreserveMath)
     .use(remarkKramdownCodeClasses)
+    .use(remarkRewritePublicPaths)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
     .use(rehypeSlug)

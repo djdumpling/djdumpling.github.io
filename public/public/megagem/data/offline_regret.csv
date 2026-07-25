@@ -1,0 +1,6 @@
+bidder,regret_coins_per_decision,role
+SFT policy,4.1235584843492585,baseline
+No price model,3.355848434925865,ablation
+Point-price EV,3.275123558484349,point
+Distributional EV,2.8193300384404174,distributional
+Best bid at realized prices,2.1175178473366283,oracle

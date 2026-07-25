@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import {
   formatArchiveDate,
-  getPostsNewestFirst,
+  getListedPostsNewestFirst,
 } from "@/lib/posts";
 import { publicPageHref, SITE } from "@/lib/site";
 
@@ -23,7 +23,9 @@ export const metadata: Metadata = {
 };
 
 export default async function ArchivePage() {
-  const posts = (await getPostsNewestFirst()).filter((post) => post.archive);
+  const posts = (await getListedPostsNewestFirst()).filter(
+    (post) => post.archive,
+  );
   const groups = new Map<string, typeof posts>();
 
   for (const post of posts) {

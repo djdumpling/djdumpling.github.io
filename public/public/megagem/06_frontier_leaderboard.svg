@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1550" height="1050" viewBox="0 0 1550 1050" role="img" aria-labelledby="title desc">
+<title id="title">Final 13-model MegaGem leaderboard</title>
+<desc id="desc">A point-and-whisker plot of deck-clustered Plackett-Luce Elo for a balanced 624-game tournament, with the trained distilled 4B nominally first and its difference from Gemini 3.1 Pro unresolved.</desc>
+<defs>
+<marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#a3a3a3"/></marker>
+</defs>
+<rect width="1550" height="1050" fill="#181818"/>
+<text x="58.0" y="64.0" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="600" text-anchor="start" opacity="1.0">A trained 4B reaches the frontier</text>
+<text x="1492.0" y="64.0" fill="#a3a3a3" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="400" text-anchor="end" opacity="1.0">Plackett–Luce Elo · 624 games · 144 appearances/model · 95% deck-bootstrap CI</text>
+<line x1="527.7" y1="120.0" x2="527.7" y2="965.0" stroke="#464646" stroke-width="1.0" opacity="1.0" stroke-dasharray="4 7"/>
+<text x="527.7" y="106.0" fill="#737373" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="middle" opacity="1.0">500</text>
+<line x1="791.2" y1="120.0" x2="791.2" y2="965.0" stroke="#464646" stroke-width="1.0" opacity="1.0" stroke-dasharray="4 7"/>
+<text x="791.2" y="106.0" fill="#737373" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="middle" opacity="1.0">750</text>
+<line x1="1054.7" y1="120.0" x2="1054.7" y2="965.0" stroke="#464646" stroke-width="1.0" opacity="1.0" stroke-dasharray="4 7"/>
+<text x="1054.7" y="106.0" fill="#737373" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="middle" opacity="1.0">1000</text>
+<line x1="1318.2" y1="120.0" x2="1318.2" y2="965.0" stroke="#464646" stroke-width="1.0" opacity="1.0" stroke-dasharray="4 7"/>
+<text x="1318.2" y="106.0" fill="#737373" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="middle" opacity="1.0">1250</text>
+<rect x="40.0" y="123.0" width="1410.0" height="55.0" rx="6.0" fill="#20351f" stroke="none" stroke-width="1.5" opacity="0.28"/>
+<text x="445.0" y="159.0" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700" text-anchor="end" opacity="1.0">MegaGem Distilled 4B</text>
+<line x1="475.0" y1="151.0" x2="1450.0" y2="151.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="1290.8" y1="151.0" x2="1401.5" y2="151.0" stroke="#7fee64" stroke-width="4.0" opacity="0.9"/>
+<line x1="1290.8" y1="142.0" x2="1290.8" y2="160.0" stroke="#7fee64" stroke-width="2.0" opacity="0.9"/>
+<line x1="1401.5" y1="142.0" x2="1401.5" y2="160.0" stroke="#7fee64" stroke-width="2.0" opacity="0.9"/>
+<circle cx="1344.6" cy="151.0" r="8.0" fill="#7fee64" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="1413.5" y="159.0" fill="#7fee64" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">1275</text>
+<text x="445.0" y="224.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">Gemini 3.1 Pro</text>
+<line x1="475.0" y1="216.0" x2="1450.0" y2="216.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="1229.7" y1="216.0" x2="1346.7" y2="216.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="1229.7" y1="207.0" x2="1229.7" y2="225.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="1346.7" y1="207.0" x2="1346.7" y2="225.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="1284.5" cy="216.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="1358.7" y="224.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">1218</text>
+<text x="445.0" y="289.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">Gemini 3 Flash</text>
+<line x1="475.0" y1="281.0" x2="1450.0" y2="281.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="1228.6" y1="281.0" x2="1342.5" y2="281.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="1228.6" y1="272.0" x2="1228.6" y2="290.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="1342.5" y1="272.0" x2="1342.5" y2="290.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="1282.4" cy="281.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="1354.5" y="289.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">1216</text>
+<rect x="40.0" y="318.0" width="1410.0" height="55.0" rx="6.0" fill="#20351f" stroke="none" stroke-width="1.5" opacity="0.28"/>
+<text x="445.0" y="354.0" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700" text-anchor="end" opacity="1.0">MegaGem SFT 4B</text>
+<line x1="475.0" y1="346.0" x2="1450.0" y2="346.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="1167.5" y1="346.0" x2="1280.3" y2="346.0" stroke="#91c8ef" stroke-width="4.0" opacity="0.9"/>
+<line x1="1167.5" y1="337.0" x2="1167.5" y2="355.0" stroke="#91c8ef" stroke-width="2.0" opacity="0.9"/>
+<line x1="1280.3" y1="337.0" x2="1280.3" y2="355.0" stroke="#91c8ef" stroke-width="2.0" opacity="0.9"/>
+<circle cx="1221.3" cy="346.0" r="8.0" fill="#91c8ef" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="1292.3" y="354.0" fill="#91c8ef" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">1158</text>
+<text x="445.0" y="419.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">Claude Sonnet 4.6</text>
+<line x1="475.0" y1="411.0" x2="1450.0" y2="411.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="1068.4" y1="411.0" x2="1164.4" y2="411.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="1068.4" y1="402.0" x2="1068.4" y2="420.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="1164.4" y1="402.0" x2="1164.4" y2="420.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="1114.8" cy="411.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="1176.4" y="419.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">1057</text>
+<text x="445.0" y="484.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">Claude Opus 4.8</text>
+<line x1="475.0" y1="476.0" x2="1450.0" y2="476.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="1058.9" y1="476.0" x2="1165.4" y2="476.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="1058.9" y1="467.0" x2="1058.9" y2="485.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="1165.4" y1="467.0" x2="1165.4" y2="485.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="1111.6" cy="476.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="1177.4" y="484.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">1054</text>
+<text x="445.0" y="549.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">GPT-5.5</text>
+<line x1="475.0" y1="541.0" x2="1450.0" y2="541.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="1058.9" y1="541.0" x2="1152.8" y2="541.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="1058.9" y1="532.0" x2="1058.9" y2="550.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="1152.8" y1="532.0" x2="1152.8" y2="550.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="1104.3" cy="541.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="1164.8" y="549.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">1047</text>
+<text x="445.0" y="614.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">GPT-4.1</text>
+<line x1="475.0" y1="606.0" x2="1450.0" y2="606.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="933.5" y1="606.0" x2="1050.5" y2="606.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="933.5" y1="597.0" x2="933.5" y2="615.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="1050.5" y1="597.0" x2="1050.5" y2="615.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="996.8" cy="606.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="1062.5" y="614.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">945</text>
+<text x="445.0" y="679.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">Gemini 2.5 Flash</text>
+<line x1="475.0" y1="671.0" x2="1450.0" y2="671.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="917.7" y1="671.0" x2="1019.9" y2="671.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="917.7" y1="662.0" x2="917.7" y2="680.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="1019.9" y1="662.0" x2="1019.9" y2="680.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="972.5" cy="671.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="1031.9" y="679.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">922</text>
+<text x="445.0" y="744.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">Claude Haiku 4.5</text>
+<line x1="475.0" y1="736.0" x2="1450.0" y2="736.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="843.9" y1="736.0" x2="960.9" y2="736.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="843.9" y1="727.0" x2="843.9" y2="745.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="960.9" y1="727.0" x2="960.9" y2="745.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="905.1" cy="736.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="972.9" y="744.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">858</text>
+<text x="445.0" y="809.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">Grok-4.20</text>
+<line x1="475.0" y1="801.0" x2="1450.0" y2="801.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="835.5" y1="801.0" x2="956.7" y2="801.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="835.5" y1="792.0" x2="835.5" y2="810.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="956.7" y1="792.0" x2="956.7" y2="810.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="898.7" cy="801.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="968.7" y="809.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">852</text>
+<text x="445.0" y="874.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">Mistral Large 2512</text>
+<line x1="475.0" y1="866.0" x2="1450.0" y2="866.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="835.5" y1="866.0" x2="954.6" y2="866.0" stroke="#6f8ca0" stroke-width="4.0" opacity="0.9"/>
+<line x1="835.5" y1="857.0" x2="835.5" y2="875.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<line x1="954.6" y1="857.0" x2="954.6" y2="875.0" stroke="#6f8ca0" stroke-width="2.0" opacity="0.9"/>
+<circle cx="894.5" cy="866.0" r="8.0" fill="#6f8ca0" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="966.6" y="874.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">848</text>
+<text x="445.0" y="939.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="end" opacity="1.0">Qwen3-4B Instruct</text>
+<line x1="475.0" y1="931.0" x2="1450.0" y2="931.0" stroke="#464646" stroke-width="1.0" opacity="0.35"/>
+<line x1="495.0" y1="931.0" x2="638.4" y2="931.0" stroke="#737373" stroke-width="4.0" opacity="0.9"/>
+<line x1="495.0" y1="922.0" x2="495.0" y2="940.0" stroke="#737373" stroke-width="2.0" opacity="0.9"/>
+<line x1="638.4" y1="922.0" x2="638.4" y2="940.0" stroke="#737373" stroke-width="2.0" opacity="0.9"/>
+<circle cx="581.5" cy="931.0" r="8.0" fill="#737373" stroke="#ffffff" stroke-width="2.0" opacity="1.0"/>
+<text x="650.4" y="939.0" fill="#e8e8e8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start" opacity="1.0">551</text>
+<rect x="825.0" y="950.0" width="620.0" height="78.0" rx="8.0" fill="#20351f" stroke="#7fee64" stroke-width="1.5" opacity="1.0"/>
+<text x="1135.0" y="980.0" fill="#7fee64" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" text-anchor="middle" opacity="1.0">Separate top-three test · 450 games · 150 deal clusters</text>
+<text x="1135.0" y="1010.0" fill="#7fee64" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="600" text-anchor="middle" opacity="1.0">Distilled–Pro unresolved; both &gt; Flash</text>
+<text x="55.0" y="1003.0" fill="#a3a3a3" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start" opacity="1.0">Frontier models zero-shot · SFT and Distilled 4B task-trained</text>
+</svg>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import {
   formatHomeDate,
-  getPostsNewestFirst,
+  getListedPostsNewestFirst,
 } from "@/lib/posts";
 import { publicPageHref, SITE } from "@/lib/site";
 
@@ -22,7 +22,9 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const posts = (await getPostsNewestFirst()).filter((post) => !post.ongoing);
+  const posts = (await getListedPostsNewestFirst()).filter(
+    (post) => !post.ongoing,
+  );
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
