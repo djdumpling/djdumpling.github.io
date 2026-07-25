@@ -45,3 +45,17 @@ test("long-form table-of-contents anchors resolve", async ({ page }) => {
   );
   expect(brokenAnchors).toEqual([]);
 });
+
+test("long unlisted posts finish MathJax typesetting", async ({ page }) => {
+  await page.goto("/2026/07/25/my-draft.html");
+
+  const criticParagraph = page.locator(
+    "#defining-a-centralized-action-critic + p",
+  );
+  await expect(criticParagraph.locator("mjx-container")).toHaveCount(2, {
+    timeout: 15_000,
+  });
+  await expect
+    .poll(() => page.locator("mjx-container").count(), { timeout: 15_000 })
+    .toBeGreaterThan(200);
+});

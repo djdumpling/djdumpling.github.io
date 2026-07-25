@@ -11,8 +11,16 @@ declare global {
   }
 }
 
+let typesetQueue: Promise<unknown> = Promise.resolve();
+
 function typesetMath() {
-  void window.MathJax?.typesetPromise?.();
+  if (!window.MathJax?.typesetPromise) {
+    return;
+  }
+
+  typesetQueue = typesetQueue
+    .catch(() => undefined)
+    .then(() => window.MathJax?.typesetPromise?.());
 }
 
 export function ClientEnhancements() {
