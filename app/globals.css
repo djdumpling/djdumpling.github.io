@@ -87,3 +87,11 @@
   color: #e83e8c !important;
   font-size: 0.8em !important;
 }
+
+.post-content img {
+  display: block;
+  width: 80%;
+  height: auto;
+  margin-right: auto;
+  margin-left: auto;
+}

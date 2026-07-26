@@ -46,6 +46,23 @@ test("long-form table-of-contents anchors resolve", async ({ page }) => {
   expect(brokenAnchors).toEqual([]);
 });
 
+test("post images are centered at 80 percent width", async ({ page }) => {
+  await page.goto("/2026/07/25/my-draft.html");
+
+  const images = page.locator(".post-content img");
+  await expect(images.first()).toBeVisible();
+  const imageWidthRatios = await images.evaluateAll((elements) =>
+    elements.map(
+      (image) =>
+        image.getBoundingClientRect().width /
+        (image.parentElement?.getBoundingClientRect().width ?? 1),
+    ),
+  );
+  expect(imageWidthRatios.every((ratio) => Math.abs(ratio - 0.8) < 0.01)).toBe(
+    true,
+  );
+});
+
 test("long unlisted posts finish MathJax typesetting", async ({ page }) => {
   await page.goto("/2026/07/25/my-draft.html");
 
