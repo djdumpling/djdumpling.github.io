@@ -52,9 +52,9 @@ export default async function HomePage() {
             LLM architecture and ML systems.
           </p>
           <p>
-            This summer, I&apos;m interning with the RL and training team at{" "}
+            This summer, I&apos;m interning with the model training team at{" "}
             <a href="https://modal.com/" target="_blank">
-              Modal
+              Modal, working on RL
             </a>
             . Previously, I&apos;ve developed RL environments in{" "}
             <a
@@ -67,14 +67,9 @@ export default async function HomePage() {
             <a href="https://nlp.cs.yale.edu/" target="_blank">
               Yale NLP lab
             </a>
-            , and researching web agents for human behavior prediction.
-            I&apos;ve also done research in rubrics (
+            , and worked with rubrics for agents at{" "}
             <a href="https://www.judgmentlabs.ai/" target="_blank">
-              Judgment Labs
-            </a>
-            ). Check out our ICLR NFAM Workshop 2026 submission{" "}
-            <a href="https://arxiv.org/abs/2603.03464" target="_blank">
-              here
+               Judgment Labs
             </a>
             .
           </p>
