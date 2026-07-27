@@ -1,0 +1,18 @@
+{
+  "source": "Modal megagem-results/ev_gate_e1stage1/games_ev",
+  "source_files": 150,
+  "source_file_sha256_manifest": "828f7bbd3d532ceb427fb18ef4c15135b347bb305e0a5797d55f34c21cc472be",
+  "decisions": 1761,
+  "bootstrap": {
+    "cluster": "game",
+    "replicates": 10000,
+    "seed": 20260726
+  },
+  "metrics": {
+    "mean_predicted_win_probability": 0.40270863145939806,
+    "empirical_win_frequency": 0.36229415105053947,
+    "fixed_bin_expected_calibration_error": 0.05398608745031232,
+    "brier_score": 0.0939424417773992
+  },
+  "scope": "Chosen seat-0 treasure bids in the 150 live myopic-selector games against two Gemini 3 Flash opponents."
+}

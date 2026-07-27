@@ -95,3 +95,16 @@
   margin-right: auto;
   margin-left: auto;
 }
+
+.post-content .contributions-box {
+  margin-bottom: 30px;
+  padding: 18px 22px;
+  border: 1px solid #dedede;
+  border-left: 4px solid #2a7ae2;
+  border-radius: 6px;
+  background: #f7f7f7;
+}
+
+.post-content .contributions-box ol {
+  margin-bottom: 0;
+}
