@@ -83,6 +83,22 @@ describe("static export", () => {
     expect(fruitBox).toContain('allowfullscreen');
   });
 
+  it("uses the MegaGem leaderboard for social previews", () => {
+    const html = fs.readFileSync(
+      path.join(OUT, "2026/07/25/my-draft.html"),
+      "utf8",
+    );
+    const image =
+      "https://djdumpling.github.io/public/megagem/megagembench.png";
+
+    expect(html).toContain(
+      `<meta property="og:image" content="${image}"/>`,
+    );
+    expect(html).toContain(
+      `<meta name="twitter:image" content="${image}"/>`,
+    );
+  });
+
   it("resolves every local image and internal page link", () => {
     const missing = new Set<string>();
 
