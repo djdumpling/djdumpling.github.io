@@ -47,16 +47,16 @@ export default async function HomePage() {
         <img src="/public/pfp.jpg" alt="Alex Wa" className="profile-image" />
         <div className="profile-content">
           <p>
-            Hey! I&apos;m Alex Wa, a 2nd year Math and CS major at Yale. My
+            Hey! I&apos;m Alex Wa, a rising 3nd year Math and CS major at Yale. My
             research currently span RL and NLP, and I&apos;m also interested in
             LLM architecture and ML systems.
           </p>
           <p>
             This summer, I&apos;m interning with the model training team at{" "}
             <a href="https://modal.com/" target="_blank">
-              Modal, working on RL
+              Modal
             </a>
-            . Previously, I&apos;ve developed RL environments in{" "}
+            , working on RL. Previously, I&apos;ve developed RL environments in{" "}
             <a
               href="https://app.primeintellect.ai/dashboard/environments"
               target="_blank"
