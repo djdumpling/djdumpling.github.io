@@ -29,7 +29,31 @@ First paragraph.
     expect(post.legacyUrl).toBe("/2026/02/03/Case_Sensitive.html");
     expect(post.tags).toEqual(["Other"]);
     expect(post.author).toBe("Alex Wa");
+    expect(post.excerptParagraphs).toBe(1);
     expect(post.unlisted).toBe(false);
+  });
+
+  it("supports multi-paragraph home-page excerpts via frontmatter", async () => {
+    const post = await parsePostFile(
+      "2026-02-03-long-excerpt.md",
+      `---
+title: Long excerpt
+date: 2026-02-03
+excerpt_paragraphs: 2
+---
+
+First paragraph.
+
+Second paragraph.
+
+Third paragraph.
+`,
+    );
+
+    expect(post.excerptParagraphs).toBe(2);
+    expect(post.excerptHtml).toContain("<p>First paragraph.</p>");
+    expect(post.excerptHtml).toContain("<p>Second paragraph.</p>");
+    expect(post.excerptHtml).not.toContain("Third paragraph.");
   });
 
   it("loads all posts in chronological and reverse order", async () => {

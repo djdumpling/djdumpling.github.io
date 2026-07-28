@@ -156,7 +156,14 @@ export async function renderMarkdown(markdown: string): Promise<string> {
 }
 
 export function firstParagraph(html: string): string {
-  return html.match(/<p>[\s\S]*?<\/p>/)?.[0] ?? "";
+  return firstParagraphs(html, 1);
+}
+
+export function firstParagraphs(html: string, count: number): string {
+  return [...html.matchAll(/<p>[\s\S]*?<\/p>/g)]
+    .slice(0, count)
+    .map(([paragraph]) => paragraph)
+    .join("\n");
 }
 
 export function htmlToText(html: string): string {

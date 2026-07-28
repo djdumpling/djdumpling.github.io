@@ -5,7 +5,7 @@ import matter from "gray-matter";
 import { z } from "zod";
 
 import {
-  firstParagraph,
+  firstParagraphs,
   htmlToText,
   renderMarkdown,
 } from "@/lib/markdown";
@@ -19,6 +19,7 @@ const frontmatterSchema = z.object({
   author: z.string().optional(),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
   image: z.string().optional(),
+  excerpt_paragraphs: z.number().int().positive().optional(),
   tokens: z.string().optional(),
   reading_time: z.number().int().positive().optional(),
   ongoing: z.boolean().optional(),
@@ -32,6 +33,7 @@ export type PostFrontmatter = {
   author: string;
   tags: string[];
   image?: string;
+  excerptParagraphs: number;
   tokens?: string;
   readingTime?: number;
   ongoing: boolean;
@@ -104,7 +106,8 @@ export async function parsePostFile(
   const route = `/${year}/${month}/${day}/${slug}`;
   const legacyUrl = `${route}.html`;
   const html = await renderMarkdown(parsed.content);
-  const excerptHtml = firstParagraph(html);
+  const excerptParagraphs = frontmatter.excerpt_paragraphs ?? 1;
+  const excerptHtml = firstParagraphs(html, excerptParagraphs);
 
   return {
     filename,
@@ -116,6 +119,7 @@ export async function parsePostFile(
     author: frontmatter.author ?? SITE.author,
     tags: normalizeTags(frontmatter.tags),
     image: frontmatter.image,
+    excerptParagraphs,
     tokens: frontmatter.tokens,
     readingTime: frontmatter.reading_time,
     ongoing: frontmatter.ongoing ?? false,
