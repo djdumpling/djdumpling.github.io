@@ -67,7 +67,7 @@ test("long unlisted posts finish MathJax typesetting", async ({ page }) => {
   await page.goto("/2026/07/25/my-draft.html");
 
   const criticParagraph = page.locator(
-    "#defining-a-centralized-action-critic + p",
+    "#critic-target + p",
   );
   await expect(criticParagraph.locator("mjx-container")).toHaveCount(2, {
     timeout: 15_000,
