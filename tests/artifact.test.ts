@@ -16,7 +16,7 @@ const expectedPages = [
   "2025/12/14/SEA-privacy.html",
   "2026/01/31/frontier_training.html",
   "2026/05/27/modded-nanoGPT-WR.html",
-  "2026/07/25/my-draft.html",
+  "2026/08/09/megagem.html",
 ];
 
 // Posts moved to archived_posts/ must never be exported.
@@ -83,13 +83,13 @@ describe("static export", () => {
     expect(fruitBox).toContain('allowfullscreen');
   });
 
-  it("uses the MegaGem leaderboard for social previews", () => {
+  it("uses the MegaGem global overview for social previews", () => {
     const html = fs.readFileSync(
-      path.join(OUT, "2026/07/25/my-draft.html"),
+      path.join(OUT, "2026/08/09/megagem.html"),
       "utf8",
     );
     const image =
-      "https://djdumpling.github.io/public/megagem/megagembench.png";
+      "https://djdumpling.github.io/public/megagem/global.png";
 
     expect(html).toContain(
       `<meta property="og:image" content="${image}"/>`,
@@ -148,11 +148,11 @@ describe("static export", () => {
     const feed = fs.readFileSync(path.join(OUT, "feed.xml"), "utf8");
     const sitemap = fs.readFileSync(path.join(OUT, "sitemap.xml"), "utf8");
 
-    expect(feed.match(/<entry>/g)).toHaveLength(5);
+    expect(feed.match(/<entry>/g)).toHaveLength(6);
     expect(feed).not.toContain("reading_every_day");
-    expect(sitemap.match(/<url>/g)).toHaveLength(7);
-    expect(feed).not.toContain("my-draft");
-    expect(sitemap).not.toContain("my-draft");
+    expect(sitemap.match(/<url>/g)).toHaveLength(8);
+    expect(feed).toContain("megagem");
+    expect(sitemap).toContain("megagem");
     expect(sitemap).not.toContain("reading_every_day");
     expect(sitemap).not.toContain("localhost");
   });
