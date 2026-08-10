@@ -63,7 +63,7 @@ Third paragraph.
     // Only `_posts/` is published; archived_posts/ is local-only.
     expect(chronological).toHaveLength(6);
     expect(chronological[0].slug).toBe("rlhf_gpt2");
-    expect(chronological.at(-1)?.slug).toBe("my-draft");
+    expect(chronological.at(-1)?.slug).toBe("megagem");
     expect(newestFirst.map((post) => post.slug)).toEqual(
       [...chronological].reverse().map((post) => post.slug),
     );
@@ -76,11 +76,11 @@ Third paragraph.
     expect(posts).toHaveLength(6);
     expect(
       posts.filter((post) => isPostListed(post) && !post.ongoing),
-    ).toHaveLength(5);
+    ).toHaveLength(6);
     expect(
       posts.filter((post) => isPostListed(post) && post.archive),
-    ).toHaveLength(5);
-    expect(posts.filter((post) => post.unlisted)).toHaveLength(1);
+    ).toHaveLength(6);
+    expect(posts.filter((post) => post.unlisted)).toHaveLength(0);
 
     // The flag semantics still apply when frontmatter sets them.
     const hidden = await parsePostFile(
