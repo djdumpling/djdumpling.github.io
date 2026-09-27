@@ -7,6 +7,7 @@ const OUT = path.join(ROOT, "out");
 const expectedPages = [
   "index.html",
   "archive.html",
+  "art.html",
   "404.html",
   "feed.xml",
   "sitemap.xml",
@@ -150,7 +151,7 @@ describe("static export", () => {
 
     expect(feed.match(/<entry>/g)).toHaveLength(6);
     expect(feed).not.toContain("reading_every_day");
-    expect(sitemap.match(/<url>/g)).toHaveLength(8);
+    expect(sitemap.match(/<url>/g)).toHaveLength(9);
     expect(feed).toContain("megagem");
     expect(sitemap).toContain("megagem");
     expect(sitemap).not.toContain("reading_every_day");

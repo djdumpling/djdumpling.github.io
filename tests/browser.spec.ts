@@ -4,14 +4,14 @@ test("home and archive preserve their public navigation", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveTitle(/Alex Wa's Blog/);
   await expect(page.locator(".profile-image")).toBeVisible();
-  await expect(page.locator(".post-item")).toHaveCount(5);
+  await expect(page.locator(".post-item")).toHaveCount(6);
   await expect(
     page.locator('a[href="/2026/05/27/modded-nanoGPT-WR.html"]'),
   ).toBeVisible();
 
   await page.goto("/archive.html");
   await expect(page.getByRole("heading", { name: "Blog Archive" })).toBeVisible();
-  await expect(page.locator(".post-content li")).toHaveCount(5);
+  await expect(page.locator(".post-content li")).toHaveCount(6);
 });
 
 test("post media, equations, details, and navigation survive export", async ({
@@ -47,7 +47,7 @@ test("long-form table-of-contents anchors resolve", async ({ page }) => {
 });
 
 test("post images are centered at 80 percent width", async ({ page }) => {
-  await page.goto("/2026/07/25/my-draft.html");
+  await page.goto("/2026/08/09/megagem.html");
 
   const images = page.locator(".post-content img");
   await expect(images.first()).toBeVisible();
@@ -63,8 +63,8 @@ test("post images are centered at 80 percent width", async ({ page }) => {
   );
 });
 
-test("long unlisted posts finish MathJax typesetting", async ({ page }) => {
-  await page.goto("/2026/07/25/my-draft.html");
+test("long posts finish MathJax typesetting", async ({ page }) => {
+  await page.goto("/2026/08/09/megagem.html");
 
   const criticParagraph = page.locator(
     "#critic-target + p",
@@ -75,4 +75,38 @@ test("long unlisted posts finish MathJax typesetting", async ({ page }) => {
   await expect
     .poll(() => page.locator("mjx-container").count(), { timeout: 15_000 })
     .toBeGreaterThan(200);
+});
+
+test("art board opens pieces in a navigable lightbox", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Art", exact: true }).click();
+  await expect(page).toHaveURL(/\/art(\.html)?$/);
+  await expect(page).toHaveTitle(/^Art \|/);
+  await expect(page.locator(".art-intro")).toContainText("@alex_wa_art");
+
+  const cards = page.locator(".art-card");
+  await expect(cards).toHaveCount(47);
+  await expect(page.locator(".art-column")).toHaveCount(3);
+
+  const firstTitle = await cards.first().locator(".art-title").textContent();
+  await cards.first().locator(".art-mat").click();
+  const lightbox = page.locator(".art-lightbox");
+  await expect(lightbox).toBeVisible();
+  await expect(lightbox.locator("h2")).toHaveText(firstTitle ?? "");
+  await expect(lightbox.locator("img")).toHaveJSProperty("complete", true);
+
+  await page.keyboard.press("ArrowRight");
+  await expect(lightbox.locator(".art-lightbox-count")).toHaveText("2 / 47");
+  await page.keyboard.press("Escape");
+  await expect(lightbox).toBeHidden();
+
+  await page.getByRole("button", { name: "Medium" }).click();
+  await expect(page.locator(".art-section-heading")).toHaveText([
+    /^Watercolor/,
+    /^Oil painting/,
+    /^Pencil & marker/,
+    /^Charcoal/,
+    /^Mixed media/,
+  ]);
+  await expect(cards).toHaveCount(47);
 });

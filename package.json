@@ -6,7 +6,10 @@
     "node": "24.x"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs",
+    "art:frame": "node scripts/frame-art.mjs",
+    "art:watch": "node scripts/frame-art.mjs --watch",
+    "art:edit": "node scripts/art-editor.mjs",
     "build": "next build",
     "preview": "serve out",
     "lint": "eslint .",

@@ -27,6 +27,9 @@ export function SiteHeader() {
             >
               Blog Archive
             </a>
+            <a className="page-link" href={publicPageHref("/art", "/art.html")}>
+              Art
+            </a>
           </div>
         </nav>
       </div>

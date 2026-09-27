@@ -1,0 +1,1389 @@
+{
+  "ignoredPosts": [
+    "17916533225127792",
+    "18044260396747385",
+    "18130012918277135",
+    "18187132186154924",
+    "18274155010020039",
+    "18290055688071523"
+  ],
+  "pieces": [
+    {
+      "id": "IMG_3698",
+      "post": "IMG_3698",
+      "date": "2026-05",
+      "src": "/images/art/2026-05-IMG_3698.jpg",
+      "thumb": "/images/art/thumbs/2026-05-IMG_3698.jpg",
+      "width": 1600,
+      "height": 1599,
+      "color": "#4b628d",
+      "title": "Floating",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "art-originals/IMG_3698.jpg",
+        "corners": [
+          [
+            203,
+            305
+          ],
+          [
+            3963,
+            268
+          ],
+          [
+            3973,
+            4027
+          ],
+          [
+            225,
+            4048
+          ]
+        ]
+      },
+      "version": "9ad4cec7"
+    },
+    {
+      "id": "17884812918480219",
+      "post": "17884812918480219",
+      "date": "2026-04-10",
+      "src": "/images/art/2026-04-10-17884812918480219.jpg",
+      "thumb": "/images/art/thumbs/2026-04-10-17884812918480219.jpg",
+      "width": 1271,
+      "height": 1600,
+      "color": "#6f7371",
+      "title": "Owl, from the Peabody’s collection",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/17884812918480219.jpg",
+        "corners": [
+          [
+            40,
+            121
+          ],
+          [
+            1359,
+            118
+          ],
+          [
+            1374,
+            1784
+          ],
+          [
+            45,
+            1789
+          ]
+        ],
+        "edge": false
+      },
+      "version": "c3892ba7"
+    },
+    {
+      "id": "18114273634677417-oil",
+      "post": "18573439831024206",
+      "date": "2026-03-15",
+      "src": "/images/art/2026-03-15-18114273634677417-oil.jpg",
+      "thumb": "/images/art/thumbs/2026-03-15-18114273634677417-oil.jpg",
+      "width": 1349,
+      "height": 989,
+      "color": "#de6b1b",
+      "title": "Lucky cat with oranges",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/18114273634677417.jpg",
+        "corners": [
+          [
+            35,
+            884
+          ],
+          [
+            1415,
+            867
+          ],
+          [
+            1412,
+            1859
+          ],
+          [
+            63,
+            1894
+          ]
+        ],
+        "edge": false
+      },
+      "version": "c397b7bb"
+    },
+    {
+      "id": "17955068789938620",
+      "post": "17955068789938620",
+      "date": "2026-03-05",
+      "src": "/images/art/2026-03-05-17955068789938620.jpg",
+      "thumb": "/images/art/thumbs/2026-03-05-17955068789938620.jpg",
+      "width": 1422,
+      "height": 1142,
+      "color": "#935c54",
+      "title": "Still life",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/17955068789938620.jpg",
+        "corners": [
+          [
+            0,
+            3
+          ],
+          [
+            1440,
+            0
+          ],
+          [
+            1440,
+            1157
+          ],
+          [
+            0,
+            1157
+          ]
+        ],
+        "edge": false
+      },
+      "version": "762ef01c"
+    },
+    {
+      "id": "18017619155718330",
+      "post": "18017619155718330",
+      "date": "2025-05-23",
+      "src": "/images/art/2025-05-23-18017619155718330.jpg",
+      "thumb": "/images/art/thumbs/2025-05-23-18017619155718330.jpg",
+      "width": 989,
+      "height": 1321,
+      "color": "#928e89",
+      "title": "Upwards at Schwarzman",
+      "medium": "Marker",
+      "section": "pencil",
+      "frame": {
+        "source": "media/posts/18017619155718330.jpg",
+        "corners": [
+          [
+            283,
+            245
+          ],
+          [
+            1272,
+            243
+          ],
+          [
+            1279,
+            1582
+          ],
+          [
+            266,
+            1580
+          ]
+        ],
+        "edge": false
+      },
+      "version": "eaf63021",
+      "pin": 3
+    },
+    {
+      "id": "17995319405596552",
+      "post": "17995319405596552",
+      "date": "2025-01-16",
+      "src": "/images/art/2025-01-16-17995319405596552.jpg",
+      "thumb": "/images/art/thumbs/2025-01-16-17995319405596552.jpg",
+      "width": 1281,
+      "height": 1600,
+      "color": "#8b8a7f",
+      "title": "Harkness Tower",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/17995319405596552.jpg",
+        "corners": [
+          [
+            0,
+            0
+          ],
+          [
+            1439,
+            5
+          ],
+          [
+            1440,
+            1800
+          ],
+          [
+            0,
+            1800
+          ]
+        ],
+        "edge": false
+      },
+      "version": "5c54de18",
+      "pin": 2
+    },
+    {
+      "id": "17949356846905367",
+      "post": "17949356846905367",
+      "date": "2024-11-29",
+      "src": "/images/art/2024-11-29-17949356846905367.jpg",
+      "thumb": "/images/art/thumbs/2024-11-29-17949356846905367.jpg",
+      "width": 1119,
+      "height": 797,
+      "color": "#a7a48c",
+      "title": "After Charles Demuth’s Green Pears",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/17949356846905367.jpg",
+        "corners": [
+          [
+            154,
+            109
+          ],
+          [
+            1286,
+            109
+          ],
+          [
+            1287,
+            916
+          ],
+          [
+            153,
+            916
+          ]
+        ],
+        "edge": false
+      },
+      "version": "15d0d30f",
+      "pin": 4
+    },
+    {
+      "id": "18049803400964124",
+      "post": "18049803400964124",
+      "date": "2024-11-17",
+      "src": "/images/art/2024-11-17-18049803400964124.jpg",
+      "thumb": "/images/art/thumbs/2024-11-17-18049803400964124.jpg",
+      "width": 958,
+      "height": 1382,
+      "color": "#8b706a",
+      "title": "Portrait study",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/18049803400964124.jpg",
+        "corners": [
+          [
+            225,
+            188
+          ],
+          [
+            1194,
+            188
+          ],
+          [
+            1195,
+            1586
+          ],
+          [
+            225,
+            1585
+          ]
+        ],
+        "edge": false
+      },
+      "version": "71a8e77e",
+      "pin": 1
+    },
+    {
+      "id": "18002997515691830",
+      "post": "18002997515691830",
+      "date": "2024-11-07",
+      "src": "/images/art/2024-11-07-18002997515691830.jpg",
+      "thumb": "/images/art/thumbs/2024-11-07-18002997515691830.jpg",
+      "width": 1076,
+      "height": 1600,
+      "color": "#b2ada1",
+      "title": "Lady at Beinecke Plaza",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/18002997515691830.jpg",
+        "corners": [
+          [
+            171,
+            80
+          ],
+          [
+            1276,
+            79
+          ],
+          [
+            1277,
+            1721
+          ],
+          [
+            172,
+            1721
+          ]
+        ],
+        "edge": false
+      },
+      "version": "5277d4e8",
+      "pin": 3
+    },
+    {
+      "id": "18573439831024206",
+      "post": "18573439831024206",
+      "date": "2024-11",
+      "src": "/images/art/2026-03-15-18573439831024206.jpg",
+      "thumb": "/images/art/thumbs/2026-03-15-18573439831024206.jpg",
+      "width": 1108,
+      "height": 1600,
+      "color": "#b6937f",
+      "title": "Bust study",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/18573439831024206.jpg",
+        "corners": [
+          [
+            149,
+            74
+          ],
+          [
+            1371,
+            61
+          ],
+          [
+            1381,
+            1826
+          ],
+          [
+            178,
+            1815
+          ]
+        ],
+        "edge": false
+      },
+      "version": "77a77798",
+      "pin": -1
+    },
+    {
+      "id": "18045166346022105",
+      "post": "18045166346022105",
+      "date": "2024-10-30",
+      "src": "/images/art/2024-10-30-18045166346022105.jpg",
+      "thumb": "/images/art/thumbs/2024-10-30-18045166346022105.jpg",
+      "width": 1262,
+      "height": 1032,
+      "color": "#734531",
+      "title": "After Winslow Homer’s The New Novel",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/18045166346022105.jpg",
+        "corners": [
+          [
+            43,
+            39
+          ],
+          [
+            1321,
+            39
+          ],
+          [
+            1322,
+            1082
+          ],
+          [
+            44,
+            1084
+          ]
+        ],
+        "edge": false
+      },
+      "version": "12ca5ac7"
+    },
+    {
+      "id": "18400246837151069",
+      "post": "18573439831024206",
+      "date": "2024-10",
+      "src": "/images/art/2026-03-15-18400246837151069.jpg",
+      "thumb": "/images/art/thumbs/2026-03-15-18400246837151069.jpg",
+      "width": 1263,
+      "height": 1043,
+      "color": "#b4b09c",
+      "title": "Banana",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/18400246837151069.jpg",
+        "corners": [
+          [
+            150,
+            508
+          ],
+          [
+            1437,
+            507
+          ],
+          [
+            1427,
+            1565
+          ],
+          [
+            157,
+            1560
+          ]
+        ],
+        "edge": false
+      },
+      "version": "7da9c07e",
+      "pin": 5
+    },
+    {
+      "id": "17943654894151208",
+      "post": "18573439831024206",
+      "date": "2024-10",
+      "src": "/images/art/2026-03-15-17943654894151208.jpg",
+      "thumb": "/images/art/thumbs/2026-03-15-17943654894151208.jpg",
+      "width": 1061,
+      "height": 1522,
+      "color": "#c5b8a6",
+      "title": "Lucky bamboo",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/17943654894151208.jpg",
+        "corners": [
+          [
+            222,
+            199
+          ],
+          [
+            1282,
+            174
+          ],
+          [
+            1344,
+            1703
+          ],
+          [
+            260,
+            1749
+          ]
+        ],
+        "edge": false
+      },
+      "version": "1ad3531d"
+    },
+    {
+      "id": "18090977336139353",
+      "post": "18573439831024206",
+      "date": "2024-10",
+      "src": "/images/art/2026-03-15-18090977336139353.jpg",
+      "thumb": "/images/art/thumbs/2026-03-15-18090977336139353.jpg",
+      "width": 1205,
+      "height": 883,
+      "color": "#bb9f86",
+      "title": "Little pumpkin",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/18090977336139353.jpg",
+        "corners": [
+          [
+            19,
+            608
+          ],
+          [
+            1234,
+            630
+          ],
+          [
+            1223,
+            1521
+          ],
+          [
+            0,
+            1503
+          ]
+        ],
+        "edge": false
+      },
+      "version": "0fc5788f"
+    },
+    {
+      "id": "17914996662323619",
+      "post": "18573439831024206",
+      "date": "2024-09",
+      "src": "/images/art/2026-03-15-17914996662323619.jpg",
+      "thumb": "/images/art/thumbs/2026-03-15-17914996662323619.jpg",
+      "width": 1239,
+      "height": 1398,
+      "color": "#ad8b73",
+      "title": "Ionic capital",
+      "medium": "Watercolor",
+      "section": "watercolor",
+      "frame": {
+        "source": "media/posts/17914996662323619.jpg",
+        "corners": [
+          [
+            0,
+            87
+          ],
+          [
+            1255,
+            84
+          ],
+          [
+            1255,
+            1495
+          ],
+          [
+            0,
+            1503
+          ]
+        ],
+        "edge": false
+      },
+      "version": "7e988fba"
+    },
+    {
+      "id": "18055010869690589",
+      "post": "18055010869690589",
+      "date": "2024-08-16",
+      "src": "/images/art/2024-08-16-18055010869690589.jpg",
+      "thumb": "/images/art/thumbs/2024-08-16-18055010869690589.jpg",
+      "width": 1259,
+      "height": 1600,
+      "color": "#9d9990",
+      "title": "Bass Tower, Pauli Murray College",
+      "medium": "Marker",
+      "section": "pencil",
+      "frame": {
+        "source": "media/posts/18055010869690589.jpg",
+        "corners": [
+          [
+            66,
+            55
+          ],
+          [
+            1374,
+            54
+          ],
+          [
+            1373,
+            1715
+          ],
+          [
+            67,
+            1716
+          ]
+        ],
+        "edge": false
+      },
+      "version": "807ff7f3",
+      "pin": 2
+    },
+    {
+      "id": "17844495219282210",
+      "post": "18034565809914984",
+      "date": "2024-08-12",
+      "src": "/images/art/2024-08-12-17844495219282210.jpg",
+      "thumb": "/images/art/thumbs/2024-08-12-17844495219282210.jpg",
+      "width": 958,
+      "height": 765,
+      "color": "#666c5e",
+      "title": "After Mark Boedges",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/17844495219282210.jpg",
+        "corners": [
+          [
+            215,
+            152
+          ],
+          [
+            1186,
+            147
+          ],
+          [
+            1188,
+            920
+          ],
+          [
+            220,
+            929
+          ]
+        ],
+        "edge": false
+      },
+      "version": "31bf3135"
+    },
+    {
+      "id": "17988488321686690",
+      "post": "17988488321686690",
+      "date": "2024-08-07",
+      "src": "/images/art/2024-08-07-17988488321686690.jpg",
+      "thumb": "/images/art/thumbs/2024-08-07-17988488321686690.jpg",
+      "width": 1422,
+      "height": 1120,
+      "color": "#7e615f",
+      "title": "Quaint Quintessence",
+      "medium": "Charcoal and acrylic",
+      "section": "charcoal",
+      "frame": {
+        "source": "media/posts/17988488321686690.jpg",
+        "corners": [
+          [
+            0,
+            0
+          ],
+          [
+            1440,
+            0
+          ],
+          [
+            1440,
+            1134
+          ],
+          [
+            0,
+            1134
+          ]
+        ],
+        "edge": false
+      },
+      "version": "e4085792"
+    },
+    {
+      "id": "18051391699748481",
+      "post": "18051391699748481",
+      "date": "2024-07-28",
+      "src": "/images/art/2024-07-28-18051391699748481.jpg",
+      "thumb": "/images/art/thumbs/2024-07-28-18051391699748481.jpg",
+      "width": 1170,
+      "height": 932,
+      "color": "#7d7e79",
+      "title": "After Pissarro’s Route de Versailles, Louveciennes",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/18051391699748481.jpg",
+        "corners": [
+          [
+            133,
+            72
+          ],
+          [
+            1323,
+            70
+          ],
+          [
+            1319,
+            1013
+          ],
+          [
+            142,
+            1016
+          ]
+        ],
+        "edge": false
+      },
+      "version": "af445ee9"
+    },
+    {
+      "id": "18016706633168780",
+      "post": "18016706633168780",
+      "date": "2024-07-08",
+      "src": "/images/art/2024-07-08-18016706633168780.jpg",
+      "thumb": "/images/art/thumbs/2024-07-08-18016706633168780.jpg",
+      "width": 1108,
+      "height": 885,
+      "color": "#7c6a39",
+      "title": "Landscape study",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/18016706633168780.jpg",
+        "corners": [
+          [
+            163,
+            83
+          ],
+          [
+            1279,
+            95
+          ],
+          [
+            1281,
+            980
+          ],
+          [
+            153,
+            988
+          ]
+        ],
+        "edge": false
+      },
+      "version": "ad7abeaf"
+    },
+    {
+      "id": "18021429011261472",
+      "post": "17897957508004194",
+      "date": "2024-06-23",
+      "src": "/images/art/2024-06-23-18021429011261472.jpg",
+      "thumb": "/images/art/thumbs/2024-06-23-18021429011261472.jpg",
+      "width": 1204,
+      "height": 978,
+      "color": "#a49274",
+      "title": "After Caillebotte’s Voiliers à Argenteuil",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/18021429011261472.jpg",
+        "corners": [
+          [
+            133,
+            51
+          ],
+          [
+            1300,
+            48
+          ],
+          [
+            1308,
+            987
+          ],
+          [
+            136,
+            995
+          ]
+        ]
+      },
+      "version": "011c315c"
+    },
+    {
+      "id": "17906589395896211",
+      "post": "17906589395896211",
+      "date": "2024-06-09",
+      "src": "/images/art/2024-06-09-17906589395896211.jpg",
+      "thumb": "/images/art/thumbs/2024-06-09-17906589395896211.jpg",
+      "width": 1600,
+      "height": 1199,
+      "color": "#66585f",
+      "title": "Class Photo",
+      "medium": "Charcoal and acrylic",
+      "section": "charcoal"
+    },
+    {
+      "id": "18048464764683089",
+      "post": "18048464764683089",
+      "date": "2024-05-31",
+      "src": "/images/art/2024-05-31-18048464764683089.jpg",
+      "thumb": "/images/art/thumbs/2024-05-31-18048464764683089.jpg",
+      "width": 1422,
+      "height": 1113,
+      "color": "#b4b5b0",
+      "title": "Three trees, three styles",
+      "medium": "Pencil",
+      "section": "pencil",
+      "frame": {
+        "source": "media/posts/18048464764683089.jpg",
+        "corners": [
+          [
+            0,
+            59
+          ],
+          [
+            1439,
+            58
+          ],
+          [
+            1440,
+            1185
+          ],
+          [
+            0,
+            1185
+          ]
+        ],
+        "edge": false
+      },
+      "version": "e5f4950b"
+    },
+    {
+      "id": "17914821860923846",
+      "post": "17914821860923846",
+      "date": "2024-04-30",
+      "src": "/images/art/2024-04-30-17914821860923846.jpg",
+      "thumb": "/images/art/thumbs/2024-04-30-17914821860923846.jpg",
+      "width": 1317,
+      "height": 1600,
+      "color": "#786058",
+      "title": "Portrait of Mrs. Ellis",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/17914821860923846.jpg",
+        "corners": [
+          [
+            0,
+            0
+          ],
+          [
+            1419,
+            0
+          ],
+          [
+            1423,
+            1724
+          ],
+          [
+            0,
+            1724
+          ]
+        ],
+        "edge": false
+      },
+      "version": "8afec3be"
+    },
+    {
+      "id": "18026096756007724",
+      "post": "18026096756007724",
+      "date": "2024-04-01",
+      "src": "/images/art/2024-04-01-18026096756007724.jpg",
+      "thumb": "/images/art/thumbs/2024-04-01-18026096756007724.jpg",
+      "width": 1600,
+      "height": 1047,
+      "color": "#656568",
+      "title": "Train of Thought",
+      "medium": "Charcoal and acrylic",
+      "section": "charcoal"
+    },
+    {
+      "id": "18329433907184742",
+      "post": "18329433907184742",
+      "date": "2024-03-23",
+      "src": "/images/art/2024-03-23-18329433907184742.jpg",
+      "thumb": "/images/art/thumbs/2024-03-23-18329433907184742.jpg",
+      "width": 1440,
+      "height": 1218,
+      "color": "#555542",
+      "title": "Atlas",
+      "medium": "Charcoal and acrylic",
+      "section": "charcoal"
+    },
+    {
+      "id": "18230642803271933",
+      "post": "18230642803271933",
+      "date": "2024-03-10",
+      "src": "/images/art/2024-03-10-18230642803271933.jpg",
+      "thumb": "/images/art/thumbs/2024-03-10-18230642803271933.jpg",
+      "width": 1080,
+      "height": 833,
+      "color": "#9a8845",
+      "title": "The Ground Scrappers",
+      "medium": "Charcoal and acrylic",
+      "section": "charcoal"
+    },
+    {
+      "id": "18223091158270898",
+      "post": "18223091158270898",
+      "date": "2024-02-11",
+      "src": "/images/art/2024-02-11-18223091158270898.jpg",
+      "thumb": "/images/art/thumbs/2024-02-11-18223091158270898.jpg",
+      "width": 1080,
+      "height": 809,
+      "color": "#84593f",
+      "title": "Looking Up",
+      "medium": "Charcoal and acrylic",
+      "section": "charcoal"
+    },
+    {
+      "id": "17986059863389920",
+      "post": "17986059863389920",
+      "date": "2024-01-22",
+      "src": "/images/art/2024-01-22-17986059863389920.jpg",
+      "thumb": "/images/art/thumbs/2024-01-22-17986059863389920.jpg",
+      "width": 1600,
+      "height": 1258,
+      "color": "#7c5e59",
+      "title": "In Your Arms",
+      "medium": "Charcoal and acrylic",
+      "section": "charcoal"
+    },
+    {
+      "id": "18241891372227767",
+      "post": "18241891372227767",
+      "date": "2023-10-04",
+      "src": "/images/art/2023-10-04-18241891372227767.jpg",
+      "thumb": "/images/art/thumbs/2023-10-04-18241891372227767.jpg",
+      "width": 1169,
+      "height": 1600,
+      "color": "#87837f",
+      "title": "A section of the Louvre",
+      "medium": "Marker",
+      "section": "pencil",
+      "frame": {
+        "source": "media/posts/18241891372227767.jpg",
+        "corners": [
+          [
+            65,
+            19
+          ],
+          [
+            1362,
+            20
+          ],
+          [
+            1363,
+            1795
+          ],
+          [
+            65,
+            1796
+          ]
+        ],
+        "edge": false
+      },
+      "version": "9a0dc830",
+      "pin": 1
+    },
+    {
+      "id": "18033570490493162",
+      "post": "18033570490493162",
+      "date": "2023-08-05",
+      "src": "/images/art/2023-08-05-18033570490493162.jpg",
+      "thumb": "/images/art/thumbs/2023-08-05-18033570490493162.jpg",
+      "width": 1422,
+      "height": 1241,
+      "color": "#c4beb2",
+      "title": "Studies of the arm",
+      "medium": "Pencil",
+      "section": "pencil",
+      "frame": {
+        "source": "media/posts/202308/18033570490493162.jpg",
+        "corners": [
+          [
+            0,
+            0
+          ],
+          [
+            1440,
+            0
+          ],
+          [
+            1440,
+            1257
+          ],
+          [
+            0,
+            1257
+          ]
+        ],
+        "edge": false
+      },
+      "version": "6aaa0de6"
+    },
+    {
+      "id": "17989498334310871",
+      "post": "17989498334310871",
+      "date": "2023-06-20",
+      "src": "/images/art/2023-06-20-17989498334310871.jpg",
+      "thumb": "/images/art/thumbs/2023-06-20-17989498334310871.jpg",
+      "width": 1422,
+      "height": 1068,
+      "color": "#bfbbb0",
+      "title": "Skull studies",
+      "medium": "Pencil",
+      "section": "pencil",
+      "frame": {
+        "source": "media/posts/202306/17989498334310871.jpg",
+        "corners": [
+          [
+            0,
+            0
+          ],
+          [
+            1440,
+            0
+          ],
+          [
+            1440,
+            1080
+          ],
+          [
+            0,
+            1080
+          ]
+        ],
+        "edge": false
+      },
+      "version": "a3e65411"
+    },
+    {
+      "id": "17966602199260026",
+      "post": "17966602199260026",
+      "date": "2023-05-18",
+      "src": "/images/art/2023-05-18-17966602199260026.jpg",
+      "thumb": "/images/art/thumbs/2023-05-18-17966602199260026.jpg",
+      "width": 1080,
+      "height": 1257,
+      "color": "#c2bdb9",
+      "title": "Frankenstein, page 1",
+      "medium": "Calligraphy brush and ink",
+      "section": "mixed"
+    },
+    {
+      "id": "18012851107616755",
+      "post": "17966602199260026",
+      "date": "2023-05-18",
+      "src": "/images/art/2023-05-18-18012851107616755.jpg",
+      "thumb": "/images/art/thumbs/2023-05-18-18012851107616755.jpg",
+      "width": 1080,
+      "height": 1257,
+      "color": "#b9b5b2",
+      "title": "Frankenstein, page 2",
+      "medium": "Calligraphy brush and ink",
+      "section": "mixed"
+    },
+    {
+      "id": "17881025036808713",
+      "post": "17966602199260026",
+      "date": "2023-05-18",
+      "src": "/images/art/2023-05-18-17881025036808713.jpg",
+      "thumb": "/images/art/thumbs/2023-05-18-17881025036808713.jpg",
+      "width": 1080,
+      "height": 1257,
+      "color": "#b9b4b1",
+      "title": "Frankenstein, page 3",
+      "medium": "Calligraphy brush and ink",
+      "section": "mixed"
+    },
+    {
+      "id": "17999725729831653",
+      "post": "17966602199260026",
+      "date": "2023-05-18",
+      "src": "/images/art/2023-05-18-17999725729831653.jpg",
+      "thumb": "/images/art/thumbs/2023-05-18-17999725729831653.jpg",
+      "width": 1080,
+      "height": 1257,
+      "color": "#9e9b98",
+      "title": "Frankenstein, page 4",
+      "medium": "Calligraphy brush and ink",
+      "section": "mixed"
+    },
+    {
+      "id": "18009444901651887",
+      "post": "17966602199260026",
+      "date": "2023-05-18",
+      "src": "/images/art/2023-05-18-18009444901651887.jpg",
+      "thumb": "/images/art/thumbs/2023-05-18-18009444901651887.jpg",
+      "width": 1080,
+      "height": 1256,
+      "color": "#b4b3b1",
+      "title": "Frankenstein, page 5",
+      "medium": "Calligraphy brush and ink",
+      "section": "mixed"
+    },
+    {
+      "id": "17972923652138259",
+      "post": "17966602199260026",
+      "date": "2023-05-18",
+      "src": "/images/art/2023-05-18-17972923652138259.jpg",
+      "thumb": "/images/art/thumbs/2023-05-18-17972923652138259.jpg",
+      "width": 1080,
+      "height": 1257,
+      "color": "#a19f9e",
+      "title": "Frankenstein, page 6",
+      "medium": "Calligraphy brush and ink",
+      "section": "mixed"
+    },
+    {
+      "id": "18036786115469516",
+      "post": "17966602199260026",
+      "date": "2023-05-18",
+      "src": "/images/art/2023-05-18-18036786115469516.jpg",
+      "thumb": "/images/art/thumbs/2023-05-18-18036786115469516.jpg",
+      "width": 1080,
+      "height": 1257,
+      "color": "#bcb7b7",
+      "title": "Frankenstein, page 7",
+      "medium": "Calligraphy brush and ink",
+      "section": "mixed"
+    },
+    {
+      "id": "18013067884614990",
+      "post": "17966602199260026",
+      "date": "2023-05-18",
+      "src": "/images/art/2023-05-18-18013067884614990.jpg",
+      "thumb": "/images/art/thumbs/2023-05-18-18013067884614990.jpg",
+      "width": 1080,
+      "height": 1257,
+      "color": "#d0d0cf",
+      "title": "Frankenstein, page 8",
+      "medium": "Calligraphy brush and ink",
+      "section": "mixed"
+    },
+    {
+      "id": "17861127308936545",
+      "post": "17861127308936545",
+      "date": "2023-04-30",
+      "src": "/images/art/2023-04-30-17861127308936545.jpg",
+      "thumb": "/images/art/thumbs/2023-04-30-17861127308936545.jpg",
+      "width": 1267,
+      "height": 1600,
+      "color": "#4a4035",
+      "title": "Christmas Reverie",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/202304/17861127308936545.jpg",
+        "corners": [
+          [
+            0,
+            0
+          ],
+          [
+            1440,
+            0
+          ],
+          [
+            1440,
+            1818
+          ],
+          [
+            0,
+            1818
+          ]
+        ],
+        "edge": false
+      },
+      "version": "d3d05872"
+    },
+    {
+      "id": "17924210645593683",
+      "post": "17924210645593683",
+      "date": "2023-03-19",
+      "src": "/images/art/2023-03-19-17924210645593683.jpg",
+      "thumb": "/images/art/thumbs/2023-03-19-17924210645593683.jpg",
+      "width": 1422,
+      "height": 1181,
+      "color": "#646163",
+      "title": "Absorption",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/202303/17924210645593683.jpg",
+        "corners": [
+          [
+            0,
+            0
+          ],
+          [
+            1440,
+            0
+          ],
+          [
+            1440,
+            1195
+          ],
+          [
+            0,
+            1195
+          ]
+        ],
+        "edge": false
+      },
+      "version": "0774f98a"
+    },
+    {
+      "id": "17863972841843869",
+      "post": "17863972841843869",
+      "date": "2023-02-21",
+      "src": "/images/art/2023-02-21-17863972841843869.jpg",
+      "thumb": "/images/art/thumbs/2023-02-21-17863972841843869.jpg",
+      "width": 1270,
+      "height": 1600,
+      "color": "#80604a",
+      "title": "Fallen Order",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/202302/17863972841843869.jpg",
+        "corners": [
+          [
+            0,
+            0
+          ],
+          [
+            1440,
+            0
+          ],
+          [
+            1440,
+            1813
+          ],
+          [
+            0,
+            1813
+          ]
+        ],
+        "edge": false
+      },
+      "version": "72badf9c"
+    },
+    {
+      "id": "17995517419664119",
+      "post": "17995517419664119",
+      "date": "2023-02-11",
+      "src": "/images/art/2023-02-11-17995517419664119.jpg",
+      "thumb": "/images/art/thumbs/2023-02-11-17995517419664119.jpg",
+      "width": 725,
+      "height": 598,
+      "color": "#7a665b",
+      "title": "A Seat at Our Table",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/202302/17995517419664119.jpg",
+        "corners": [
+          [
+            174,
+            0
+          ],
+          [
+            906,
+            0
+          ],
+          [
+            906,
+            606
+          ],
+          [
+            173,
+            606
+          ]
+        ],
+        "edge": false
+      },
+      "version": "46eb9de5"
+    },
+    {
+      "id": "17985836803498291",
+      "post": "17985836803498291",
+      "date": "2022-05-22",
+      "src": "/images/art/2022-05-22-17985836803498291.jpg",
+      "thumb": "/images/art/thumbs/2022-05-22-17985836803498291.jpg",
+      "width": 1010,
+      "height": 574,
+      "color": "#84776e",
+      "title": "It Wasn’t Me!",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/202205/17985836803498291.jpg",
+        "corners": [
+          [
+            0,
+            0
+          ],
+          [
+            1022,
+            0
+          ],
+          [
+            1022,
+            580
+          ],
+          [
+            0,
+            580
+          ]
+        ],
+        "edge": false
+      },
+      "version": "b8fa9234"
+    },
+    {
+      "id": "18152460439235753",
+      "post": "18152460439235753",
+      "date": "2022-02-13",
+      "src": "/images/art/2022-02-13-18152460439235753.jpg",
+      "thumb": "/images/art/thumbs/2022-02-13-18152460439235753.jpg",
+      "width": 1051,
+      "height": 844,
+      "color": "#8f7f72",
+      "title": "Still life with vase",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/202202/18152460439235753.jpg",
+        "corners": [
+          [
+            173,
+            97
+          ],
+          [
+            1240,
+            95
+          ],
+          [
+            1239,
+            947
+          ],
+          [
+            181,
+            952
+          ]
+        ],
+        "edge": false
+      },
+      "version": "d70afa89"
+    },
+    {
+      "id": "17844131462715353",
+      "post": "17844131462715353",
+      "date": "2022-01-23",
+      "src": "/images/art/2022-01-23-17844131462715353.jpg",
+      "thumb": "/images/art/thumbs/2022-01-23-17844131462715353.jpg",
+      "width": 1257,
+      "height": 999,
+      "color": "#887a6c",
+      "title": "Copper pot still life",
+      "medium": "Oil",
+      "section": "oil",
+      "frame": {
+        "source": "media/posts/202201/17844131462715353.jpg",
+        "corners": [
+          [
+            69,
+            47
+          ],
+          [
+            1338,
+            45
+          ],
+          [
+            1352,
+            1048
+          ],
+          [
+            75,
+            1065
+          ]
+        ],
+        "edge": false
+      },
+      "version": "44db3a11"
+    }
+  ]
+}

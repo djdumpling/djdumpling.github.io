@@ -82,7 +82,7 @@ export default async function HomePage() {
             <a href="https://www.theveritassearch.com/" target="_blank">
               The Veritas Search
             </a>
-            , play board games like Catan, and enjoy photography.
+            , play board games, and enjoy photography.
           </p>
         </div>
       </div>

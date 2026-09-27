@@ -57,3 +57,22 @@ npm run verify
 
 The GitHub Pages workflow runs the same source and artifact checks before
 deploying the `out/` directory.
+
+## Art page
+
+`/art.html` is built from `lib/art.json`. To re-crop any piece, run
+`npm run art:edit` and open <http://localhost:4321>: drag the four corners on
+the original photo (or nudge them with the arrow keys), toggle the white edge,
+or switch to another photo from the same post, then press ⌘S to render it.
+
+`npm run dev` also watches that file:
+edit a painting's `frame.corners` (canvas top-left, top-right, bottom-right,
+bottom-left, in pixels of the original photo), save, and the straightened,
+white-edged image re-renders and the page reloads. If a dev server is already
+running, `npm run art:watch` starts just the watcher. Original photos come from
+the Instagram export in `~/Downloads` (or `$ART_EXPORT_DIR`); new posts are
+added with `node scripts/import-instagram-art.mjs <export-dir>`.
+
+For art that isn't on Instagram, put the photo in `art-originals/` (git-ignored,
+like the export) and add an entry to `lib/art.json` whose `frame.source` is
+`art-originals/<file>`; the watcher or editor renders it.

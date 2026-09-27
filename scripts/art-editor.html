@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Art crops</title>
+<style>
+  :root {
+    --paper: #fbf8f2;
+    --panel: #fffdf9;
+    --ink: #3a332c;
+    --muted: #8a7f72;
+    --hairline: #e3dccf;
+    --accent: #c4633f;
+    --ok: #4d7c4a;
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--ink);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; display: grid; grid-template: auto 1fr / 250px 1fr 340px; background: var(--paper); }
+  header { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+  header h1 { font: italic 600 18px Georgia, serif; margin: 0 12px 0 0; }
+  #title { font-weight: 600; }
+  #status { margin-left: auto; color: var(--muted); }
+  #status.dirty { color: var(--accent); }
+  #status.ok { color: var(--ok); }
+  button, label.toggle { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--hairline); border-radius: 6px; padding: 5px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  button:hover, label.toggle:hover { border-color: var(--muted); }
+  button.primary { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  button:disabled { opacity: 0.45; cursor: default; }
+
+  nav { overflow-y: auto; border-right: 1px solid var(--hairline); background: var(--panel); }
+  nav h2 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 14px 12px 6px; }
+  nav button { width: 100%; border: 0; border-radius: 0; background: none; padding: 5px 12px; text-align: left; justify-content: flex-start; }
+  nav button:hover { background: #f3eee4; }
+  nav button[aria-current="true"] { background: #ece4d6; }
+  nav img { width: 38px; height: 38px; object-fit: cover; border-radius: 3px; flex: none; background: #ddd; }
+  nav .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  nav .mark { font-size: 11px; color: var(--muted); }
+  nav .mark.dirty { color: var(--accent); font-size: 16px; line-height: 1; }
+
+  main { position: relative; display: flex; align-items: center; justify-content: center; padding: 24px; min-width: 0; min-height: 0; background: #2b2621; }
+  #stage { position: relative; line-height: 0; user-select: none; }
+  #photo { display: block; }
+  #overlay { position: absolute; inset: 0; overflow: visible; touch-action: none; }
+  #overlay .shade { fill: rgb(0 0 0 / 0.5); fill-rule: evenodd; pointer-events: none; }
+  #overlay .quad { fill: transparent; stroke: #ffd36b; cursor: move; }
+  #overlay .handle { fill: rgb(255 211 107 / 0.25); stroke: #ffd36b; cursor: grab; }
+  #overlay .handle.active { fill: #ffd36b; stroke: #fff; }
+
+  aside { overflow-y: auto; border-left: 1px solid var(--hairline); background: var(--panel); padding: 14px 16px 24px; }
+  aside h3 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
+  aside h3:first-child { margin-top: 0; }
+  #previewBox { height: 300px; display: flex; align-items: center; justify-content: center; background: #efe9de; border-radius: 6px; }
+  #frame { background: #fff; box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.4); }
+  #inner { position: relative; overflow: hidden; width: 100%; height: 100%; }
+  #inner img { position: absolute; left: 0; top: 0; max-width: none; transform-origin: 0 0; }
+  #loupe { display: block; width: 100%; aspect-ratio: 1; border-radius: 6px; background: #222; image-rendering: pixelated; }
+  #coords { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); margin-top: 6px; }
+  #sources { display: flex; flex-wrap: wrap; gap: 6px; }
+  #sources button { padding: 0; border-width: 2px; overflow: hidden; }
+  #sources button[aria-pressed="true"] { border-color: var(--accent); }
+  #sources img { width: 56px; height: 56px; object-fit: cover; display: block; }
+  #saved { width: 100%; border-radius: 4px; display: block; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; font-size: 12.5px; }
+  dt { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); }
+  dd { margin: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Art crops</h1>
+  <span id="title"></span>
+  <span id="status"></span>
+  <button id="full" title="Use the whole photo (F)">Full photo</button>
+  <label class="toggle" title="White edge (E)"><input type="checkbox" id="edge"> White edge</label>
+  <button id="revert" title="Discard changes (R)">Revert</button>
+  <button id="save" class="primary" title="Save and render (⌘S)">Save</button>
+</header>
+<nav id="list"></nav>
+<main><div id="stage"><img id="photo" alt=""><svg id="overlay"></svg></div></main>
+<aside>
+  <h3>Preview</h3>
+  <div id="previewBox"><div id="frame"><div id="inner"><img id="warp" alt=""></div></div></div>
+  <h3>Corner close-up</h3>
+  <canvas id="loupe" width="400" height="400"></canvas>
+  <div id="coords"></div>
+  <h3>Photo from this post</h3>
+  <div id="sources"></div>
+  <h3>Currently on the site</h3>
+  <img id="saved" alt="">
+  <h3>Keys</h3>
+  <dl>
+    <dt>drag</dt><dd>move a corner, or the whole crop from inside</dd>
+    <dt>1–4</dt><dd>select corner (TL, TR, BR, BL)</dd>
+    <dt>arrows</dt><dd>nudge corner 1px (⇧ 10px)</dd>
+    <dt>⌘S</dt><dd>save</dd>
+    <dt>[ ]</dt><dd>previous / next piece</dd>
+    <dt>F · E · R</dt><dd>full photo · edge · revert</dd>
+  </dl>
+</aside>
+<script>
+const SECTIONS = { watercolor: "Watercolor", oil: "Oil painting", pencil: "Pencil & marker", charcoal: "Charcoal", mixed: "Mixed media" };
+const EDGE = 0.025;
+const $ = (id) => document.getElementById(id);
+const svgNS = "http://www.w3.org/2000/svg";
+
+let pieces = [];
+let current = null;          // piece being edited
+let draft = null;            // { source, corners, edge }
+let active = 0;              // selected corner index
+let natural = { w: 1, h: 1 };
+let displayScale = 1;
+const drafts = new Map();    // unsaved edits per piece id
+
+function savedState(piece) {
+  return {
+    source: piece.source,
+    // Copied so dragging never edits the saved crop it's compared against.
+    corners: piece.frame?.corners?.map((point) => [...point]) ?? null, // null = whole photo
+    edge: piece.frame ? piece.frame.edge !== false : false,
+  };
+}
+const fullCorners = () => [[0, 0], [natural.w, 0], [natural.w, natural.h], [0, natural.h]];
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function isDirty(piece) {
+  const d = drafts.get(piece.id);
+  if (!d) return false;
+  const s = savedState(piece);
+  return d.source !== s.source || d.edge !== s.edge ||
+    !same(d.corners ?? d.fullAtLoad, s.corners ?? d.fullAtLoad);
+}
+
+function renderList() {
+  const nav = $("list");
+  nav.textContent = "";
+  for (const [key, label] of Object.entries(SECTIONS)) {
+    const items = pieces.filter((p) => p.section === key);
+    if (!items.length) continue;
+    const h = document.createElement("h2");
+    h.textContent = `${label} · ${items.length}`;
+    nav.append(h);
+    for (const piece of items) {
+      const b = document.createElement("button");
+      b.setAttribute("aria-current", String(piece === current));
+      const mark = isDirty(piece) ? '<span class="mark dirty">●</span>' : piece.frame ? '<span class="mark">cropped</span>' : "";
+      b.innerHTML = `<img src="${piece.thumb}" alt=""><span class="name"></span>${mark}`;
+      b.querySelector(".name").textContent = piece.title;
+      b.onclick = () => select(piece);
+      nav.append(b);
+    }
+  }
+}
+
+function select(piece) {
+  current = piece;
+  draft = drafts.get(piece.id) ?? savedState(piece);
+  drafts.set(piece.id, draft);
+  $("title").textContent = piece.title;
+  $("saved").src = piece.preview;
+  history.replaceState(null, "", `#${piece.id}`);
+  loadSource(draft.source, draft.corners);
+  renderSources();
+  renderList();
+}
+
+function loadSource(source, corners) {
+  const img = $("photo");
+  img.onload = () => {
+    natural = { w: img.naturalWidth, h: img.naturalHeight };
+    draft.fullAtLoad = fullCorners();
+    draft.corners = corners ?? fullCorners();
+    $("warp").src = img.src;
+    layout();
+  };
+  img.src = `/source/${source}`;
+}
+
+function renderSources() {
+  const box = $("sources");
+  box.textContent = "";
+  for (const uri of current.options) {
+    const b = document.createElement("button");
+    b.setAttribute("aria-pressed", String(uri === draft.source));
+    b.innerHTML = `<img src="/source/${uri}" alt="">`;
+    b.onclick = () => { draft.source = uri; loadSource(uri, null); renderSources(); };
+    box.append(b);
+  }
+}
+
+// Fit the photo to the stage and size the overlay to match.
+function layout() {
+  const main = document.querySelector("main");
+  const maxW = main.clientWidth - 48, maxH = main.clientHeight - 48;
+  displayScale = Math.min(maxW / natural.w, maxH / natural.h, 2);
+  const img = $("photo");
+  img.style.width = `${natural.w * displayScale}px`;
+  img.style.height = `${natural.h * displayScale}px`;
+  const svg = $("overlay");
+  svg.setAttribute("viewBox", `0 0 ${natural.w} ${natural.h}`);
+  svg.setAttribute("width", natural.w * displayScale);
+  svg.setAttribute("height", natural.h * displayScale);
+  draw();
+}
+
+function draw() {
+  const c = draft.corners;
+  const svg = $("overlay");
+  const r = 10 / displayScale, stroke = 1.5 / displayScale;
+  const pts = c.map((p) => p.join(",")).join(" ");
+  svg.innerHTML = `
+    <path class="shade" d="M0,0H${natural.w}V${natural.h}H0Z M${c.map((p) => p.join(",")).join(" L")}Z"/>
+    <polygon class="quad" data-drag="all" points="${pts}" stroke-width="${stroke}"/>
+    ${c.map((p, i) => `<circle class="handle${i === active ? " active" : ""}" data-drag="${i}" cx="${p[0]}" cy="${p[1]}" r="${r}" stroke-width="${stroke}"/>`).join("")}`;
+  drawPreview();
+  drawLoupe();
+  $("coords").textContent = ["TL", "TR", "BR", "BL"].map((n, i) => `${n} ${c[i].map(Math.round).join(",")}`).join("   ");
+  $("edge").checked = draft.edge;
+  const dirty = isDirty(current);
+  $("status").textContent = dirty ? "Unsaved changes" : current.frame ? "Saved" : "Original photo";
+  $("status").className = dirty ? "dirty" : "";
+  $("save").disabled = !dirty;
+  $("revert").disabled = !dirty;
+}
+
+// Solve the homography mapping four source points onto four target points.
+function homography(src, dst) {
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i], [u, v] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+  }
+  for (let col = 0; col < 8; col++) {
+    let pivot = col;
+    for (let row = col + 1; row < 8; row++) if (Math.abs(A[row][col]) > Math.abs(A[pivot][col])) pivot = row;
+    [A[col], A[pivot]] = [A[pivot], A[col]]; [b[col], b[pivot]] = [b[pivot], b[col]];
+    for (let row = 0; row < 8; row++) {
+      if (row === col) continue;
+      const f = A[row][col] / A[col][col];
+      for (let k = col; k < 8; k++) A[row][k] -= f * A[col][k];
+      b[row] -= f * b[col];
+    }
+  }
+  return b.map((value, i) => value / A[i][i]);
+}
+
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+function drawPreview() {
+  const [tl, tr, br, bl] = draft.corners;
+  const w = (dist(tl, tr) + dist(bl, br)) / 2, h = (dist(tl, bl) + dist(tr, br)) / 2;
+  const edge = draft.edge ? Math.min(w, h) * EDGE : 0;
+  const box = $("previewBox");
+  const s = Math.min((box.clientWidth - 24) / (w + 2 * edge), (box.clientHeight - 24) / (h + 2 * edge));
+  const frame = $("frame");
+  frame.style.width = `${(w + 2 * edge) * s}px`;
+  frame.style.height = `${(h + 2 * edge) * s}px`;
+  frame.style.padding = `${edge * s}px`;
+  const [a, bb, c, d, e, f, g, hh] = homography(draft.corners, [[0, 0], [w * s, 0], [w * s, h * s], [0, h * s]]);
+  const warp = $("warp");
+  warp.style.width = `${natural.w}px`;
+  warp.style.height = `${natural.h}px`;
+  warp.style.transform = `matrix3d(${a},${d},0,${g},${bb},${e},0,${hh},0,0,1,0,${c},${f},0,1)`;
+}
+
+function drawLoupe() {
+  const canvas = $("loupe"), ctx = canvas.getContext("2d");
+  const [cx, cy] = draft.corners[active];
+  const span = 60; // source pixels shown across
+  const k = canvas.width / span;
+  ctx.fillStyle = "#222";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage($("photo"), cx - span / 2, cy - span / 2, span, span, 0, 0, canvas.width, canvas.height);
+  // The crop edges running through this corner.
+  const c = draft.corners, prev = c[(active + 3) % 4], next = c[(active + 1) % 4];
+  const toLoupe = ([x, y]) => [(x - cx) * k + canvas.width / 2, (y - cy) * k + canvas.height / 2];
+  ctx.strokeStyle = "#ffd36b"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(...toLoupe(prev)); ctx.lineTo(...toLoupe(c[active])); ctx.lineTo(...toLoupe(next)); ctx.stroke();
+  ctx.strokeStyle = "rgb(255 255 255 / 0.8)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 6, 0, Math.PI * 2); ctx.stroke();
+}
+
+// Dragging corners, or the whole crop.
+let drag = null;
+$("overlay").addEventListener("pointerdown", (event) => {
+  const target = event.target.dataset.drag;
+  if (target === undefined) return;
+  const point = toSource(event);
+  if (target !== "all") active = Number(target);
+  drag = { target, start: point, corners: draft.corners.map((p) => [...p]) };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  draw();
+});
+$("overlay").addEventListener("pointermove", (event) => {
+  if (!drag) return;
+  const [x, y] = toSource(event);
+  const clamp = ([px, py]) => [Math.max(0, Math.min(natural.w, px)), Math.max(0, Math.min(natural.h, py))];
+  if (drag.target === "all") {
+    const dx = x - drag.start[0], dy = y - drag.start[1];
+    draft.corners = drag.corners.map(([px, py]) => clamp([px + dx, py + dy]));
+  } else {
+    draft.corners[active] = clamp([x, y]);
+  }
+  draw();
+});
+$("overlay").addEventListener("pointerup", () => { drag = null; renderList(); });
+
+function toSource(event) {
+  const rect = $("overlay").getBoundingClientRect();
+  return [(event.clientX - rect.left) / displayScale, (event.clientY - rect.top) / displayScale];
+}
+
+async function save() {
+  if (!isDirty(current)) return;
+  $("status").textContent = "Rendering…";
+  $("status").className = "";
+  const response = await fetch("/api/frame", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: current.id, source: draft.source, corners: draft.corners, edge: draft.edge }),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    $("status").textContent = `Error: ${result.error}`;
+    $("status").className = "dirty";
+    return;
+  }
+  const index = pieces.findIndex((p) => p.id === current.id);
+  pieces[index] = result;
+  current = result;
+  draft = savedState(result);
+  draft.fullAtLoad = fullCorners();
+  drafts.set(result.id, draft);
+  $("saved").src = result.preview;
+  renderList();
+  draw();
+  $("status").textContent = "Saved and rendered";
+  $("status").className = "ok";
+}
+
+function revert() {
+  draft = savedState(current);
+  drafts.set(current.id, draft);
+  loadSource(draft.source, draft.corners);
+  renderSources();
+  renderList();
+}
+
+function step(delta) {
+  const order = Object.keys(SECTIONS).flatMap((key) => pieces.filter((p) => p.section === key));
+  const index = order.indexOf(current);
+  select(order[(index + delta + order.length) % order.length]);
+}
+
+$("save").onclick = save;
+$("revert").onclick = revert;
+$("full").onclick = () => { draft.corners = fullCorners(); draw(); renderList(); };
+$("edge").onchange = (event) => { draft.edge = event.target.checked; draw(); renderList(); };
+
+document.addEventListener("keydown", (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key === "s") { event.preventDefault(); save(); return; }
+  if (event.metaKey || event.ctrlKey || event.altKey || event.target.matches("input")) return;
+  const nudge = event.shiftKey ? 10 : 1;
+  const moves = { ArrowLeft: [-nudge, 0], ArrowRight: [nudge, 0], ArrowUp: [0, -nudge], ArrowDown: [0, nudge] };
+  if (moves[event.key]) {
+    event.preventDefault();
+    const [dx, dy] = moves[event.key];
+    const [x, y] = draft.corners[active];
+    draft.corners[active] = [Math.max(0, Math.min(natural.w, x + dx)), Math.max(0, Math.min(natural.h, y + dy))];
+    draw();
+    renderList();
+  } else if ("1234".includes(event.key) && event.key) {
+    active = Number(event.key) - 1; draw();
+  } else if (event.key === "[" || event.key === "]") {
+    step(event.key === "]" ? 1 : -1);
+  } else if (event.key === "f") {
+    $("full").click();
+  } else if (event.key === "e") {
+    draft.edge = !draft.edge; draw(); renderList();
+  } else if (event.key === "r") {
+    revert();
+  }
+});
+window.addEventListener("resize", () => current && layout());
+window.addEventListener("beforeunload", (event) => {
+  if (pieces.some(isDirty)) event.preventDefault();
+});
+
+fetch("/api/pieces").then((r) => r.json()).then((list) => {
+  pieces = list;
+  const fromHash = pieces.find((p) => p.id === location.hash.slice(1));
+  select(fromHash ?? pieces.find((p) => p.section === "watercolor") ?? pieces[0]);
+});
+</script>
+</body>
+</html>
