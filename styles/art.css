@@ -23,8 +23,8 @@
 
 .art-intro {
   font-family: var(--art-serif);
-  font-size: 19px;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--art-ink);
   margin-bottom: 0;
 }

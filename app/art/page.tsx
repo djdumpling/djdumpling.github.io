@@ -44,10 +44,12 @@ export default function ArtPage() {
     <article className={`art-page ${display.variable} ${label.variable}`}>
       <header className="art-hero">
         <p className="art-intro">
-          A variety of mediums (oils, watercolors, charcoal, graphite, and pen): portraits, places around
-          Yale, studies after painters I admire, and other projects. Others on {" "}
+          A variety of mediums throughout the past few years, spanning oils, watercolors, charcoal, graphite, and pen. 
+          Some are studies of architectural forms, oils from painters I admire, and of anatomy; 
+          others come from works completed in watercolor and painting classes at school and art studio before college. 
+          Parts of the drawing/painting process have been documented online on {" "}
           <a href="https://www.instagram.com/alex_wa_art/">
-            @alex_wa_art
+            instagram
           </a>
           .
         </p>
