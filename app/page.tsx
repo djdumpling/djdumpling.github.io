@@ -47,12 +47,15 @@ export default async function HomePage() {
         <img src="/public/pfp.jpg" alt="Alex Wa" className="profile-image" />
         <div className="profile-content">
           <p>
-            Hey! I&apos;m Alex Wa, a rising 3rd year Math and CS major at Yale. My
-            research currently span RL and NLP, and I&apos;m also interested in
-            LLM architecture and ML systems.
+            Hey! I&apos;m Alex Wa, a 3rd year Math and CS major at Yale. I'm broadly
+            interested in post-training methods including RL and OPD as well as 
+            alignment and interpretability.
           </p>
           <p>
-            This summer, I&apos;m interning with the model training team at{" "}
+           Currently, I'm researching efficiency algorithms in post-training with the <a href="https://hanlab.mit.edu/" target="_blank">
+              MIT HAN Lab
+            </a> 
+           Last summer, I&apos;m interning with the model training team at{" "}
             <a href="https://modal.com/" target="_blank">
               Modal
             </a>
@@ -63,11 +66,7 @@ export default async function HomePage() {
             >
               Prime Intellect
             </a>
-            &apos;s RL Residency, researched RL4LLMs and rubrics with the{" "}
-            <a href="https://nlp.cs.yale.edu/" target="_blank">
-              Yale NLP lab
-            </a>
-            , and worked with rubrics for agents at{" "}
+            &apos;s RL Residency and worked with rubrics for agents at{" "}
             <a href="https://www.judgmentlabs.ai/" target="_blank">
                Judgment Labs
             </a>
