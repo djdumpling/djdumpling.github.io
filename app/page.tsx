@@ -47,15 +47,15 @@ export default async function HomePage() {
         <img src="/public/pfp.jpg" alt="Alex Wa" className="profile-image" />
         <div className="profile-content">
           <p>
-            Hey! I&apos;m Alex Wa, a 3rd year Math and CS major at Yale. I'm broadly
+            Hey! I&apos;m Alex Wa, a 3rd year Math and CS major at Yale. I&apos;m broadly
             interested in post-training methods including RL and OPD as well as 
             alignment and interpretability.
           </p>
           <p>
-           Currently, I'm researching efficiency algorithms in post-training with the <a href="https://hanlab.mit.edu/" target="_blank">
+           Currently, I&apos;m researching efficiency algorithms in post-training with the <a href="https://hanlab.mit.edu/" target="_blank">
               MIT HAN Lab
-            </a> 
-           Last summer, I&apos;m interning with the model training team at{" "}
+            </a>
+            . Last summer, I interned with the model training team at{" "}
             <a href="https://modal.com/" target="_blank">
               Modal
             </a>
