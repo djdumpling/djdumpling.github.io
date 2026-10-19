@@ -52,25 +52,11 @@ export default async function HomePage() {
             alignment and interpretability.
           </p>
           <p>
-           Currently, I&apos;m researching efficiency algorithms in post-training with the <a href="https://hanlab.mit.edu/" target="_blank">
-              MIT HAN Lab
-            </a>
-            . Last summer, I interned with the model training team at{" "}
-            <a href="https://modal.com/" target="_blank">
-              Modal
-            </a>
-            , working on RL. Previously, I&apos;ve developed RL environments in{" "}
-            <a
-              href="https://app.primeintellect.ai/dashboard/environments"
-              target="_blank"
-            >
-              Prime Intellect
-            </a>
-            &apos;s RL Residency and worked with rubrics for agents at{" "}
-            <a href="https://www.judgmentlabs.ai/" target="_blank">
-               Judgment Labs
-            </a>
-            .
+            Currently, I&apos;m researching post-training efficiency algorithms with the
+            MIT HAN Lab. Last summer, I interned with the model training team at Modal,
+            working on RL. Previously, I&apos;ve developed RL environments in Prime
+            Intellect&apos;s RL Residency and worked with rubrics for agents at Judgment
+            Labs.
           </p>
           <p>
             In my free time, I{" "}
